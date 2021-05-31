@@ -3186,7 +3186,15 @@ Rect.prototype.contains = function(x, y) {
 
 
 
+function catSound() {
+    let sounds = ["https://www.myinstants.com/media/sounds/meow2.mp3", "https://www.myinstants.com/media/sounds/meow_QO6VsE6.mp3", "https://www.myinstants.com/media/sounds/cat-meow-mp3.mp3"]
+    let random = sounds[Math.floor(Math.random()*sounds.length)]
+    const meow = new Audio(random);
+    meow.play();
+}
 
+
+document.getElementById('more-button').onclick = catSound
 
 
 

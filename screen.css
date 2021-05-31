@@ -116,6 +116,11 @@ table { border: 0; padding: 0; margin: 0; }
 #midi-btn { position: absolute; left: 300px; top: 32px; }
 #record-btn { position: absolute; left: 420px; top: 32px; }
 #synth-btn { position: absolute; left: 540px; top: 32px; }
+#social #more-button { margin-top: 4px; width: 77px; height: 90px; border-radius: 5px; border: 1px solid #abb; cursor: pointer;
+	transition: all 0.25s; box-shadow: 1px 1px 8px #bb9; color: #788; text-shadow: none;
+	background: url('/web/20150317155006im_/http://www.multiplayerpiano.com/kitten1.png') 0px 4px no-repeat; background-color: #dee; }
+#social #more-button:hover { color: #899; background-color: #e8f8f0; transition: background-color 0.25s; }
+
 
 #tooltip { position: absolute; pointer-events: none; background: #000; color: #fff; font-size: 10px; }
 .knob { cursor: pointer; }
