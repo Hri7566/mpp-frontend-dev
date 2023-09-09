@@ -1148,11 +1148,13 @@ $(function () {
     if (channel_id.substr(0, 1) == "#") channel_id = channel_id.substr(1);
     if (channel_id == "") channel_id = "lobby";
 
-    var wssport =
+    const isSecure = globalThis.location.protocol == "https:";
+    const port =
         window.location.hostname == "www.multiplayerpiano.com" ? 443 : 8443;
-    var gClient = new Client(
-        "wss://" + window.location.hostname + ":" + wssport
+    const gClient = new Client(
+        (isSecure ? "wss://" : "ws://") + window.location.hostname + ":" + port
     );
+
     gClient.setChannel(channel_id);
     gClient.start();
 
