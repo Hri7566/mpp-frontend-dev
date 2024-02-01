@@ -1149,8 +1149,9 @@ $(function () {
     if (channel_id == "") channel_id = "lobby";
 
     const protocol = location.protocol == "https:" ? "wss:" : "ws:";
-    const wssport =
-        window.location.hostname == "www.multiplayerpiano.dev" ? 443 : 8443;
+    const wssport = window.location.hostname.includes("multiplayerpiano.dev")
+        ? 443
+        : 8443;
     const gClient = new Client(`${protocol}//${location.hostname}:${wssport}`);
     gClient.setChannel(channel_id);
     gClient.start();
