@@ -1150,7 +1150,7 @@ $(function () {
 
     const isSecure = globalThis.location.protocol == "https:";
     const port =
-        window.location.hostname == "staging.multiplayerpiano.dev" ? 443 : 8443;
+        window.location.hostname.includes("multiplayerpiano.dev") ? 443 : 8443;
     const gClient = new Client(
         (isSecure ? "wss://" : "ws://") + window.location.hostname + ":" + port
     );
