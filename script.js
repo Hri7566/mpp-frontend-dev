@@ -3022,6 +3022,32 @@ $(function () {
         img.src = enc;
     };
 
+    // more button
+    (function() {
+        var loaded = false;
+        setTimeout(function() {
+            $("#social").fadeIn(250);
+            $("#more-button").click(function() {
+                openModal("#more");
+                if(loaded === false) {
+                    $.get("/more.html").success(function(data) {
+                        loaded = true;
+                        var items = $(data).find(".item");
+                        if(items.length > 0) {
+                            $("#more .items").append(items);
+                        }
+                        try {
+                            var ele = document.getElementById("email");
+                            var email = ele.getAttribute("obscured").replace(/[a-zA-Z]/g,function(c){return String.fromCharCode((c<="Z"?90:122)>=(c=c.charCodeAt(0)+13)?c:c-26);});
+                            ele.href = "mailto:" + email;
+                            ele.textContent = email;
+                        } catch(e) { }
+                    });
+                }
+            });
+        }, 5000);
+    })();
+
     // API
     window.MPP = {
         press: press,
@@ -3332,7 +3358,7 @@ $(function () {
         }
     })();
 });
-
+/*
 function catSound() {
     let sounds = [
         "cat-sounds/meow1.mp3",
@@ -3352,6 +3378,7 @@ function catSound() {
 }
 
 document.getElementById("more-button").onclick = catSound;
+*/
 
 // misc
 
