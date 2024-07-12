@@ -1144,8 +1144,8 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
-    var channel_id = decodeURIComponent(window.location.hash);
-    if (channel_id.substr(0, 1) == "#") channel_id = channel_id.substr(1);
+    var channel_id = decodeURIComponent(window.location.pathname);
+    if (channel_id.substr(0, 1) == "/") channel_id = channel_id.substr(1);
     if (channel_id == "") channel_id = "lobby";
 
     const isSecure = globalThis.location.protocol == "https:";
@@ -2329,7 +2329,7 @@ $(function () {
         if (name == "") name = "lobby";
         if (gClient.channel && gClient.channel._id === name) return;
         if (push) {
-            var url = "/#" + encodeURIComponent(name).replace("'", "%27");
+            var url = "/" + encodeURIComponent(name).replace("'", "%27");
             if (window.history && history.pushState) {
                 history.pushState(
                     { depth: (gHistoryDepth += 1), name: name },
