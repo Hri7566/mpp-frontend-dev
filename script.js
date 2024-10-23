@@ -15,6 +15,16 @@ $(function () {
 
     var gMidiOutTest;
 
+    // base64 idea from yellowberry
+    let base64config, configs;
+
+    try {
+        base64config = document.getElementById("config").innerText;
+        configs = JSON.parse(atob(base64config));
+    } catch (err) {
+        console.warn("Unable to parse server config:", err);
+    }
+
     if (!Array.prototype.indexOf) {
         Array.prototype.indexOf = function (elt /*, from*/) {
             var len = this.length >>> 0;
@@ -1149,8 +1159,9 @@ $(function () {
     if (channel_id == "") channel_id = "lobby";
 
     const isSecure = globalThis.location.protocol == "https:";
-    const port =
-        window.location.hostname.includes("multiplayerpiano.dev") ? 443 : 8443;
+    const port = window.location.hostname.includes("multiplayerpiano.dev")
+        ? 443
+        : 8443;
     const gClient = new Client(
         (isSecure ? "wss://" : "ws://") + window.location.hostname + ":" + port
     );
@@ -1548,7 +1559,7 @@ $(function () {
 
             var bottom = document.getElementById("bottom");
 
-            var duration = 500;
+            var duration = 50;
             var step = 0;
             var steps = 30;
             var step_ms = duration / steps;
@@ -1605,6 +1616,7 @@ $(function () {
         gClient.on("ch", function (ch) {
             if (ch.ch.settings) {
                 if (ch.ch.settings.color) {
+                    console.log("debug!!!", ch.ch.settings);
                     setColor(ch.ch.settings.color, ch.ch.settings.color2);
                 } else {
                     setColorToDefault();
@@ -2346,23 +2358,28 @@ $(function () {
 
         var t = 0,
             d = 100;
-        $("#piano")
-            .addClass("ease-out")
-            .addClass("slide-" + opposite);
-        setTimeout(function () {
+
+        $("#piano").addClass("slide");
+
+        requestAnimationFrame(() => {
             $("#piano")
-                .removeClass("ease-out")
-                .removeClass("slide-" + opposite)
-                .addClass("slide-" + direction);
-        }, (t += d));
-        setTimeout(function () {
-            $("#piano")
-                .addClass("ease-in")
-                .removeClass("slide-" + direction);
-        }, (t += d));
-        setTimeout(function () {
-            $("#piano").removeClass("ease-in");
-        }, (t += d));
+                .addClass("ease-out")
+                .addClass("slide-" + opposite);
+            setTimeout(function () {
+                $("#piano")
+                    .removeClass("ease-out")
+                    .removeClass("slide-" + opposite)
+                    .addClass("slide-" + direction);
+            }, (t += d));
+            setTimeout(function () {
+                $("#piano")
+                    .addClass("ease-in")
+                    .removeClass("slide-" + direction);
+            }, (t += d));
+            setTimeout(function () {
+                $("#piano").removeClass("ease-in");
+            }, (t += d));
+        });
     }
 
     var gHistoryDepth = 0;
@@ -2691,7 +2708,7 @@ $(function () {
                                 if (typeof input.volume === "undefined") {
                                     input.volume = 1.0;
                                 }
-                                console.log("input", input);
+                                // console.log("input", input);
                             }
                         }
                         if (midi.outputs.size > 0) {
@@ -2706,7 +2723,7 @@ $(function () {
                                 if (typeof output.volume === "undefined") {
                                     output.volume = 1.0;
                                 }
-                                console.log("output", output);
+                                // console.log("output", output);
                             }
                             gMidiOutTest = function (note_name, vel, delay_ms) {
                                 var note_number =
@@ -3023,25 +3040,34 @@ $(function () {
     };
 
     // more button
-    (function() {
+    (function () {
         var loaded = false;
-        setTimeout(function() {
+        setTimeout(function () {
             $("#social").fadeIn(250);
-            $("#more-button").click(function() {
+            $("#more-button").click(function () {
                 openModal("#more");
-                if(loaded === false) {
-                    $.get("/more.html").success(function(data) {
+                if (loaded === false) {
+                    $.get("/more.html").success(function (data) {
                         loaded = true;
                         var items = $(data).find(".item");
-                        if(items.length > 0) {
+                        if (items.length > 0) {
                             $("#more .items").append(items);
                         }
                         try {
                             var ele = document.getElementById("email");
-                            var email = ele.getAttribute("obscured").replace(/[a-zA-Z]/g,function(c){return String.fromCharCode((c<="Z"?90:122)>=(c=c.charCodeAt(0)+13)?c:c-26);});
+                            var email = ele
+                                .getAttribute("obscured")
+                                .replace(/[a-zA-Z]/g, function (c) {
+                                    return String.fromCharCode(
+                                        (c <= "Z" ? 90 : 122) >=
+                                            (c = c.charCodeAt(0) + 13)
+                                            ? c
+                                            : c - 26
+                                    );
+                                });
                             ele.href = "mailto:" + email;
                             ele.textContent = email;
-                        } catch(e) { }
+                        } catch (e) {}
                     });
                 }
             });
