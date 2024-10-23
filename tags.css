@@ -1,0 +1,31 @@
+#names .nametag {
+    float: left;
+    position: relative;
+    padding: 4px;
+    margin-right: 5px;
+    border-radius: 2px;
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 10px;
+    line-height: 7px;
+}
+
+#names .nametag {
+    z-index: 301;
+}
+
+.cursor .name .curtag {
+    display: inline-block;
+    font-size: 10px;
+    line-height: 7px;
+    margin-right: 5px;
+    margin-bottom: 1px;
+    border-radius: 5px;
+    margin-left: 1px;
+    overflow: hidden;
+    position: relative;
+    padding: 4px;
+    white-space: nowrap;
+}
