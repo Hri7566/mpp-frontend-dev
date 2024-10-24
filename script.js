@@ -1,15 +1,15 @@
 // 钢琴
 
 $(function () {
-    var test_mode =
+    const test_mode =
         window.location.hash &&
         window.location.hash.match(/^(?:#.+)*#test(?:#.+)*$/i);
 
-    var gSeeOwnCursor =
+    const gSeeOwnCursor =
         window.location.hash &&
         window.location.hash.match(/^(?:#.+)*#seeowncursor(?:#.+)*$/i);
 
-    var gMidiVolumeTest =
+    const gMidiVolumeTest =
         window.location.hash &&
         window.location.hash.match(/^(?:#.+)*#midivolumetest(?:#.+)*$/i);
 
@@ -1166,8 +1166,13 @@ $(function () {
         (isSecure ? "wss://" : "ws://") + window.location.hostname + ":" + port
     );
 
+    let enableTokens = true;
+    let enableChallenge = true;
+    if (configs.usersConfig.tokenAuth == "none") enableTokens = false;
+    if (configs.usersConfig.browserChallenge == "none") enableChallenge = false;
+
     gClient.setChannel(channel_id);
-    gClient.start();
+    gClient.start(enableTokens, enableChallenge);
 
     gClient.on("disconnect", function (evt) {
         console.log(evt);
@@ -1226,6 +1231,25 @@ $(function () {
             part.nameDiv = $("#names")[0].appendChild(div);
             $(part.nameDiv).fadeIn(2000);
 
+            if (part.tag) {
+                if (configs.usersConfig.enableTags) {
+                    console.log(part.tag);
+                    const tag = document.createElement("div");
+                    $(tag).addClass("nametag");
+                    $(tag).text(part.tag.text);
+                    $(tag).css("background", part.tag.color);
+                    part.tagDiv = $(part.nameDiv).prepend(tag);
+                }
+
+                if (part.tag.text === "ADMIN") {
+                    $(part.nameDiv).addClass("admin");
+                }
+
+                if (part.tag.text === "OWNER") {
+                    $(part.nameDiv).addClass("webmaster");
+                }
+            }
+
             // sort names
             var arr = $("#names .name");
             arr.sort(function (a, b) {
@@ -1275,6 +1299,24 @@ $(function () {
                 .find(".name")
                 .text(name)
                 .css("background-color", color);
+            if (part.tag) {
+                if (configs.usersConfig.enableTags) {
+                    console.log(part.tag);
+                    const tag = document.createElement("div");
+                    $(tag).addClass("nametag");
+                    $(tag).text(part.tag.text);
+                    $(tag).css("background", part.tag.color);
+                    part.tagDiv = $(part.nameDiv).prepend(tag);
+                }
+
+                if (part.tag.text === "ADMIN") {
+                    $(part.nameDiv).addClass("admin");
+                }
+
+                if (part.tag.text === "OWNER") {
+                    $(part.nameDiv).addClass("webmaster");
+                }
+            }
         });
         gClient.on("ch", function (msg) {
             for (var id in gClient.ppl) {
@@ -1559,56 +1601,18 @@ $(function () {
 
             var bottom = document.getElementById("bottom");
 
-            var duration = 50;
-            var step = 0;
-            var steps = 30;
-            var step_ms = duration / steps;
-            var difference = new Color(color1.r, color1.g, color1.b);
-            difference.r -= old_color1.r;
-            difference.g -= old_color1.g;
-            difference.b -= old_color1.b;
-            var inc1 = new Color(
-                difference.r / steps,
-                difference.g / steps,
-                difference.b / steps
-            );
-            difference = new Color(color2.r, color2.g, color2.b);
-            difference.r -= old_color2.r;
-            difference.g -= old_color2.g;
-            difference.b -= old_color2.b;
-            var inc2 = new Color(
-                difference.r / steps,
-                difference.g / steps,
-                difference.b / steps
-            );
-            var iv;
-            iv = setInterval(function () {
-                old_color1.add(inc1.r, inc1.g, inc1.b);
-                old_color2.add(inc2.r, inc2.g, inc2.b);
-                document.body.style.background =
-                    "radial-gradient(ellipse at center, " +
-                    old_color1.toHexa() +
-                    " 0%," +
-                    old_color2.toHexa() +
-                    " 100%)";
-                bottom.style.background = old_color2.toHexa();
-                if (++step >= steps) {
-                    clearInterval(iv);
-                    old_color1 = color1;
-                    old_color2 = color2;
-                    document.body.style.background =
-                        "radial-gradient(ellipse at center, " +
-                        color1.toHexa() +
-                        " 0%," +
-                        color2.toHexa() +
-                        " 100%)";
-                    bottom.style.background = color2.toHexa();
-                }
-            }, step_ms);
+            document.body.style.setProperty("--color", color1.toHexa());
+            document.body.style.setProperty("--color2", color2.toHexa());
+
+            bottom.style.setProperty("--color", color1.toHexa());
+            bottom.style.setProperty("--color2", color2.toHexa());
         }
 
         function setColorToDefault() {
-            setColor("#000000", "#000000");
+            setColor(
+                configs.urlChannel.settings.color || "#000000",
+                configs.urlChannel.settings.color2 || "#000000"
+            );
         }
 
         setColorToDefault();
@@ -1616,7 +1620,6 @@ $(function () {
         gClient.on("ch", function (ch) {
             if (ch.ch.settings) {
                 if (ch.ch.settings.color) {
-                    console.log("debug!!!", ch.ch.settings);
                     setColor(ch.ch.settings.color, ch.ch.settings.color2);
                 } else {
                     setColorToDefault();
@@ -2045,7 +2048,7 @@ $(function () {
             eles.remove();
         }
         this.domElement = $(
-            '<div class="notification"><div class="notification-body"><div class="title"></div>' +
+            '<div class="notification" style="display: none;"><div class="notification-body"><div class="title"></div>' +
                 '<div class="text"></div></div><div class="x">Ⓧ</div></div>'
         );
         this.domElement[0].id = this.id;
@@ -2069,6 +2072,8 @@ $(function () {
         this.domElement.find(".x").click(function () {
             self.close();
         });
+
+        $(this.domElement).fadeIn(100);
 
         if (this.duration > 0) {
             setTimeout(function () {
@@ -2098,7 +2103,7 @@ $(function () {
     Notification.prototype.close = function () {
         var self = this;
         window.removeEventListener("resize", this.onresize);
-        this.domElement.fadeOut(500, function () {
+        this.domElement.fadeOut(250, function () {
             self.domElement.remove();
             self.emit("close");
         });
@@ -2239,16 +2244,24 @@ $(function () {
         var room_name = "Room" + Math.floor(Math.random() * 1000000000000);
         changeRoom(room_name, "right", { visible: false });
         setTimeout(function () {
-            new Notification({
-                id: "share",
-                title: "Playing alone",
-                html:
+            let html =
+                "You are playing alone in a room by yourself, but you can always invite \
+				friends by sending them the link.";
+
+            if (configs.config.playingAloneSocialLinks) {
+                html =
                     "You are playing alone in a room by yourself, but you can always invite \
 				friends by sending them the link.<br/><br/>\
 				<a href=\"#\" onclick=\"window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),'facebook-share-dialog','width=626,height=436');return false;\">Share on Facebook</a><br/><br/>\
 				<a href=\"http://twitter.com/home?status=" +
                     encodeURIComponent(location.href) +
-                    '" target="_blank">Tweet</a>',
+                    '" target="_blank">Tweet</a>';
+            }
+
+            new Notification({
+                id: "share",
+                title: "Playing alone",
+                html,
                 duration: 25000
             });
         }, 1000);
@@ -2279,8 +2292,8 @@ $(function () {
 
     function closeModal() {
         $(document).off("keydown", modalHandleEsc);
-        $("#modal").fadeOut(100);
-        $("#modal #modals > *").hide();
+        $("#modal").fadeOut(300);
+        // $("#modal #modals > *").hide();
         captureKeyboard();
         gModal = null;
     }
@@ -2302,6 +2315,18 @@ $(function () {
             closeModal();
             changeRoom(name, "right", settings);
             setTimeout(function () {
+                let html =
+                    "You can invite friends to your room by sending them the link.<br/><br/>\
+					<a href=\"#\" onclick=\"window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),'facebook-share-dialog','width=626,height=436');return false;\">Share on Facebook</a><br/><br/>\
+					<a href=\"http://twitter.com/home?status=" +
+                    encodeURIComponent(location.href) +
+                    '" target="_blank">Tweet</a>';
+
+                if (configs.config.createdRoomSocialLinks) {
+                    html =
+                        "You can invite friends to your room by sending them the link.";
+                }
+
                 new Notification({
                     id: "share",
                     title: "Created a Room",
@@ -2359,27 +2384,33 @@ $(function () {
         var t = 0,
             d = 100;
 
-        $("#piano").addClass("slide");
+        if (configs.config.enableSlide) {
+            $("#piano").addClass("slide");
 
-        requestAnimationFrame(() => {
-            $("#piano")
-                .addClass("ease-out")
-                .addClass("slide-" + opposite);
-            setTimeout(function () {
+            requestAnimationFrame(() => {
                 $("#piano")
-                    .removeClass("ease-out")
-                    .removeClass("slide-" + opposite)
-                    .addClass("slide-" + direction);
-            }, (t += d));
-            setTimeout(function () {
-                $("#piano")
-                    .addClass("ease-in")
-                    .removeClass("slide-" + direction);
-            }, (t += d));
-            setTimeout(function () {
-                $("#piano").removeClass("ease-in");
-            }, (t += d));
-        });
+                    .addClass("ease-out")
+                    .addClass("slide-" + opposite);
+                setTimeout(function () {
+                    $("#piano")
+                        .removeClass("ease-out")
+                        .removeClass("slide-" + opposite)
+                        .addClass("slide-" + direction);
+                }, (t += d));
+                setTimeout(function () {
+                    $("#piano")
+                        .addClass("ease-in")
+                        .removeClass("slide-" + direction);
+                }, (t += d));
+                setTimeout(function () {
+                    $("#piano").removeClass("ease-in");
+
+                    setTimeout(function () {
+                        $("#piano").removeClass("slide");
+                    }, d);
+                }, (t += d));
+            });
+        }
     }
 
     var gHistoryDepth = 0;
@@ -2939,105 +2970,105 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
-    window.onerror = function (message, url, line) {
-        var url = url || "(no url)";
-        var line = line || "(no line)";
-        // errors in socket.io
-        if (url.indexOf("socket.io.js") !== -1) {
-            if (message.indexOf("INVALID_STATE_ERR") !== -1) return;
-            if (message.indexOf("InvalidStateError") !== -1) return;
-            if (message.indexOf("DOM Exception 11") !== -1) return;
-            if (
-                message.indexOf(
-                    "Property 'open' of object #<c> is not a function"
-                ) !== -1
-            )
-                return;
-            if (
-                message.indexOf("Cannot call method 'close' of undefined") !==
-                -1
-            )
-                return;
-            if (message.indexOf("Cannot call method 'close' of null") !== -1)
-                return;
-            if (message.indexOf("Cannot call method 'onClose' of null") !== -1)
-                return;
-            if (message.indexOf("Cannot call method 'payload' of null") !== -1)
-                return;
-            if (
-                message.indexOf(
-                    "Unable to get value of the property 'close'"
-                ) !== -1
-            )
-                return;
-            if (message.indexOf("NS_ERROR_NOT_CONNECTED") !== -1) return;
-            if (
-                message.indexOf(
-                    "Unable to get property 'close' of undefined or null reference"
-                ) !== -1
-            )
-                return;
-            if (
-                message.indexOf(
-                    "Unable to get value of the property 'close': object is null or undefined"
-                ) !== -1
-            )
-                return;
-            if (message.indexOf("this.transport is null") !== -1) return;
-        }
-        // errors in soundmanager2
-        if (url.indexOf("soundmanager2.js") !== -1) {
-            // operation disabled in safe mode?
-            if (
-                message.indexOf(
-                    "Could not complete the operation due to error c00d36ef"
-                ) !== -1
-            )
-                return;
-            if (message.indexOf("_s.o._setVolume is not a function") !== -1)
-                return;
-        }
-        // errors in midibridge
-        if (url.indexOf("midibridge") !== -1) {
-            if (message.indexOf("Error calling method on NPObject") !== -1)
-                return;
-        }
-        // too many failing extensions injected in my html
-        if (url.indexOf(".js") !== url.length - 3) return;
-        // extensions inject cross-domain embeds too
-        if (url.toLowerCase().indexOf("multiplayerpiano.com") == -1) return;
+    // window.onerror = function (message, url, line) {
+    //     var url = url || "(no url)";
+    //     var line = line || "(no line)";
+    //     // errors in socket.io
+    //     if (url.indexOf("socket.io.js") !== -1) {
+    //         if (message.indexOf("INVALID_STATE_ERR") !== -1) return;
+    //         if (message.indexOf("InvalidStateError") !== -1) return;
+    //         if (message.indexOf("DOM Exception 11") !== -1) return;
+    //         if (
+    //             message.indexOf(
+    //                 "Property 'open' of object #<c> is not a function"
+    //             ) !== -1
+    //         )
+    //             return;
+    //         if (
+    //             message.indexOf("Cannot call method 'close' of undefined") !==
+    //             -1
+    //         )
+    //             return;
+    //         if (message.indexOf("Cannot call method 'close' of null") !== -1)
+    //             return;
+    //         if (message.indexOf("Cannot call method 'onClose' of null") !== -1)
+    //             return;
+    //         if (message.indexOf("Cannot call method 'payload' of null") !== -1)
+    //             return;
+    //         if (
+    //             message.indexOf(
+    //                 "Unable to get value of the property 'close'"
+    //             ) !== -1
+    //         )
+    //             return;
+    //         if (message.indexOf("NS_ERROR_NOT_CONNECTED") !== -1) return;
+    //         if (
+    //             message.indexOf(
+    //                 "Unable to get property 'close' of undefined or null reference"
+    //             ) !== -1
+    //         )
+    //             return;
+    //         if (
+    //             message.indexOf(
+    //                 "Unable to get value of the property 'close': object is null or undefined"
+    //             ) !== -1
+    //         )
+    //             return;
+    //         if (message.indexOf("this.transport is null") !== -1) return;
+    //     }
+    //     // errors in soundmanager2
+    //     if (url.indexOf("soundmanager2.js") !== -1) {
+    //         // operation disabled in safe mode?
+    //         if (
+    //             message.indexOf(
+    //                 "Could not complete the operation due to error c00d36ef"
+    //             ) !== -1
+    //         )
+    //             return;
+    //         if (message.indexOf("_s.o._setVolume is not a function") !== -1)
+    //             return;
+    //     }
+    //     // errors in midibridge
+    //     if (url.indexOf("midibridge") !== -1) {
+    //         if (message.indexOf("Error calling method on NPObject") !== -1)
+    //             return;
+    //     }
+    //     // too many failing extensions injected in my html
+    //     if (url.indexOf(".js") !== url.length - 3) return;
+    //     // extensions inject cross-domain embeds too
+    //     if (url.toLowerCase().indexOf("multiplayerpiano.com") == -1) return;
 
-        // errors in my code
-        if (url.indexOf("script.js") !== -1) {
-            if (
-                message.indexOf("Object [object Object] has no method 'on'") !==
-                -1
-            )
-                return;
-            if (
-                message.indexOf(
-                    "Object [object Object] has no method 'off'"
-                ) !== -1
-            )
-                return;
-            if (
-                message.indexOf(
-                    "Property '$' of object [object Object] is not a function"
-                ) !== -1
-            )
-                return;
-        }
+    //     // errors in my code
+    //     if (url.indexOf("script.js") !== -1) {
+    //         if (
+    //             message.indexOf("Object [object Object] has no method 'on'") !==
+    //             -1
+    //         )
+    //             return;
+    //         if (
+    //             message.indexOf(
+    //                 "Object [object Object] has no method 'off'"
+    //             ) !== -1
+    //         )
+    //             return;
+    //         if (
+    //             message.indexOf(
+    //                 "Property '$' of object [object Object] is not a function"
+    //             ) !== -1
+    //         )
+    //             return;
+    //     }
 
-        var enc =
-            "/bugreport/" +
-            (message ? encodeURIComponent(message) : "") +
-            "/" +
-            (url ? encodeURIComponent(url) : "") +
-            "/" +
-            (line ? encodeURIComponent(line) : "");
-        var img = new Image();
-        img.src = enc;
-    };
+    //     var enc =
+    //         "/bugreport/" +
+    //         (message ? encodeURIComponent(message) : "") +
+    //         "/" +
+    //         (url ? encodeURIComponent(url) : "") +
+    //         "/" +
+    //         (line ? encodeURIComponent(line) : "");
+    //     var img = new Image();
+    //     img.src = enc;
+    // };
 
     // more button
     (function () {
@@ -3085,7 +3116,8 @@ $(function () {
         chat: chat,
         noteQuota: gNoteQuota,
         soundSelector: gSoundSelector,
-        Notification: Notification
+        Notification: Notification,
+        configs
     };
 
     // record mp3
@@ -3384,105 +3416,3 @@ $(function () {
         }
     })();
 });
-/*
-function catSound() {
-    let sounds = [
-        "cat-sounds/meow1.mp3",
-        "cat-sounds/meow2.mp3",
-        "cat-sounds/meow3.mp3",
-        "cat-sounds/meow4.mp3",
-        "cat-sounds/meow5.mp3",
-        "cat-sounds/meow6.mp3",
-        "cat-sounds/meow7.mp3",
-        "cat-sounds/meow8.mp3",
-        "cat-sounds/meow9.mp3",
-        "cat-sounds/meow10.mp3"
-    ];
-    let random = sounds[Math.floor(Math.random() * sounds.length)];
-    const meow = new Audio(random);
-    meow.play();
-}
-
-document.getElementById("more-button").onclick = catSound;
-*/
-
-// misc
-
-////////////////////////////////////////////////////////////////
-
-// analytics
-window.google_analytics_uacct = "UA-882009-7";
-var _gaq = _gaq || [];
-_gaq.push(["_setAccount", "UA-882009-7"]);
-_gaq.push(["_trackPageview"]);
-_gaq.push(["_setAllowAnchor", true]);
-(function () {
-    var ga = document.createElement("script");
-    ga.type = "text/javascript";
-    ga.async = true;
-    ga.src =
-        ("https:" == document.location.protocol
-            ? "https://ssl"
-            : "http://www") + ".google-analytics.com/ga.js";
-    var s = document.getElementsByTagName("script")[0];
-    s.parentNode.insertBefore(ga, s);
-})();
-
-// twitter
-!(function (d, s, id) {
-    var js,
-        fjs = d.getElementsByTagName(s)[0];
-    if (!d.getElementById(id)) {
-        js = d.createElement(s);
-        js.id = id;
-        js.src = "//platform.twitter.com/widgets.js";
-        fjs.parentNode.insertBefore(js, fjs);
-    }
-})(document, "script", "twitter-wjs");
-
-// fb
-(function (d, s, id) {
-    var js,
-        fjs = d.getElementsByTagName(s)[0];
-    if (d.getElementById(id)) return;
-    js = d.createElement(s);
-    js.id = id;
-    js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.8";
-    fjs.parentNode.insertBefore(js, fjs);
-})(document, "script", "facebook-jssdk");
-
-// non-ad-free experience
-/*(function() {
-	function adsOn() {
-		if(window.localStorage) {
-			var div = document.querySelector("#inclinations");
-			div.innerHTML = "Ads:<br>ON / <a id=\"adsoff\" href=\"#\">OFF</a>";
-			div.querySelector("#adsoff").addEventListener("click", adsOff);
-			localStorage.ads = true;
-		}
-		// adsterra
-		var script = document.createElement("script");
-		script.src = "//pl132070.puhtml.com/68/7a/97/687a978dd26d579c788cb41e352f5a41.js";
-		document.head.appendChild(script);
-	}
-
-	function adsOff() {
-		if(window.localStorage) localStorage.ads = false;
-		document.location.reload(true);
-	}
-
-	function noAds() {
-		var div = document.querySelector("#inclinations");
-		div.innerHTML = "Ads:<br><a id=\"adson\" href=\"#\">ON</a> / OFF";
-		div.querySelector("#adson").addEventListener("click", adsOn);
-	}
-
-	if(window.localStorage) {
-		if(localStorage.ads === undefined || localStorage.ads === "true")
-			adsOn();
-		else
-			noAds();
-	} else {
-		adsOn();
-	}
-})();*/

@@ -1,0 +1,67 @@
+.top-button {
+    height: 24px;
+    font-size: 12px;
+    background: #111;
+    border: 1px solid #444;
+    padding: 5px;
+    cursor: pointer;
+    line-height: 12px;
+    border-radius: 2px;
+    -webkit-border-radius: 2px;
+    -moz-border-radius: 2px;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #fff;
+}
+
+.top-button:hover {
+    background: #222;
+}
+
+.top-button.stuck {
+    background: rgba(204, 187, 170, 0.35);
+}
+
+.icon-button img {
+    width: 16px;
+    height: 16px;
+}
+
+.icon-button {
+    position: fixed;
+    top: 6px;
+    z-index: 200;
+    width: 26px;
+    padding: 0;
+}
+
+.mppcommunity-button {
+    right: 6px;
+}
+
+.discord-button {
+    right: 36px;
+}
+
+.github-button {
+    right: 66px;
+    background-color: white;
+    filter: invert(100%);
+    border-color: #c6c6c6;
+}
+
+.github-button:hover {
+    background-color: #ddd;
+}
+
+.reddit-button {
+    right: 96px;
+    z-index: 500;
+}
+
+.mpp-rules-button {
+    position: fixed;
+    right: 6px;
+    top: 32px;
+    z-index: 200;
+}

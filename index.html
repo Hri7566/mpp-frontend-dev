@@ -8,11 +8,76 @@
             content="An online piano you can play alone or with others in real-time. MIDI support, 88 keys, velocity sensitive.  You can show off your skill or chat while listening to others play."
         />
         <link rel="stylesheet" href="/screen.css" />
+        {% if usersConfig.enableTags %}
+        <link rel="stylesheet" href="/tags.css" />
+        {% endif %} {% if config.topButtons == "mppnet" %}
+        <link rel="stylesheet" href="/top-button.css" />
+        {% endif %}
     </head>
     <body>
+        {% if config.topButtons == "original" %}
         <div id="social">
             <div id="more-button"></div>
         </div>
+        {% elif config.topButtons == "mppnet" %}
+        <a
+            href="https://mpp.community/"
+            title="MPPNet Community Forum"
+            target="_blank"
+        >
+            <button
+                class="mppcommunity-button icon-button top-button"
+                aria-hidden="true"
+            >
+                <img src="/mppcommunity.ico" style="vertical-align: middle" />
+            </button>
+        </a>
+        <a
+            href="https://github.com/mppnet/frontend"
+            title="MPPNet Frontend Repo"
+            target="_blank"
+        >
+            <button
+                class="github-button icon-button top-button"
+                aria-hidden="true"
+            >
+                <img src="/github.ico" style="vertical-align: middle" />
+            </button>
+        </a>
+        <a
+            href="https://www.reddit.com/r/multiplayerpianonet/"
+            title="MPPNet Reddit"
+            target="_blank"
+        >
+            <button
+                class="reddit-button icon-button top-button"
+                aria-hidden="true"
+            >
+                <img src="/reddit.ico" style="vertical-align: middle" />
+            </button>
+        </a>
+        <a
+            href="https://discord.gg/338D2xMufC"
+            title="MPPNet Discord"
+            target="_blank"
+        >
+            <button
+                class="discord-button icon-button top-button"
+                aria-hidden="true"
+            >
+                <img src="/discord.ico" style="vertical-align: middle" />
+            </button>
+        </a>
+        <a
+            href="https://docs.google.com/document/d/1wQvGwQdaI8PuEjSWxKDDThVIoAlCYIxQOyfyi4o6HcM/edit?usp=sharing"
+            title="Multiplayer Piano Rules"
+            target="_blank"
+        >
+            <button class="mpp-rules-button top-button" aria-hidden="true">
+                Rules
+            </button>
+        </a>
+        {% endif %}
 
         <div id="chat">
             <ul></ul>
