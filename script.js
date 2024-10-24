@@ -1609,10 +1609,14 @@ $(function () {
         }
 
         function setColorToDefault() {
-            setColor(
-                configs.urlChannel.settings.color || "#000000",
-                configs.urlChannel.settings.color2 || "#000000"
-            );
+            let color = "#000000";
+            let color2 = "#000000";
+
+            try {
+                color = configs.urlChannel.settings.color;
+                color2 = configs.urlChannel.settings.color2;
+            } catch (err) {}
+            setColor(color, color2);
         }
 
         setColorToDefault();
