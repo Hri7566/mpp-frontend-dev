@@ -2326,7 +2326,7 @@ $(function () {
                     encodeURIComponent(location.href) +
                     '" target="_blank">Tweet</a>';
 
-                if (configs.config.createdRoomSocialLinks) {
+                if (!configs.config.createdRoomSocialLinks) {
                     html =
                         "You can invite friends to your room by sending them the link.";
                 }
@@ -2334,12 +2334,7 @@ $(function () {
                 new Notification({
                     id: "share",
                     title: "Created a Room",
-                    html:
-                        "You can invite friends to your room by sending them the link.<br/><br/>\
-					<a href=\"#\" onclick=\"window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),'facebook-share-dialog','width=626,height=436');return false;\">Share on Facebook</a><br/><br/>\
-					<a href=\"http://twitter.com/home?status=" +
-                        encodeURIComponent(location.href) +
-                        '" target="_blank">Tweet</a>',
+                    html,
                     duration: 25000
                 });
             }, 1000);
