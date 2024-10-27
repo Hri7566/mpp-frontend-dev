@@ -140,6 +140,7 @@ class Client extends EventEmitter {
             if (!enableChallenge) {
                 const token = localStorage.token;
                 var hiMsg = { m: "hi", token };
+                if (!enableTokens) delete hiMsg.token;
                 self.sendArray([hiMsg]);
             }
         });
