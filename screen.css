@@ -1061,20 +1061,20 @@ table {
     z-index: 300;
 }
 
-#names .name.admin:before {
+/* #names .name.admin:before {
     content: url("/silvercrown.png");
     position: absolute;
     top: -8px;
     left: 4px;
-}
+} */
 
-#names .name.webmaster:before {
+/* #names .name.webmaster:before {
     content: url("/cat.png");
     position: absolute;
     top: -8px;
     left: 4px;
     z-index: 302;
-}
+} */
 
 #piano {
     z-index: 400;
@@ -1095,6 +1095,7 @@ table {
 #crown {
     z-index: 600;
 }
+
 .notification {
     z-index: 700;
 }

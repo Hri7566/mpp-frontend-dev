@@ -13,7 +13,7 @@ $(function () {
         window.location.hash &&
         window.location.hash.match(/^(?:#.+)*#midivolumetest(?:#.+)*$/i);
 
-    var gMidiOutTest;
+    let gMidiOutTest;
 
     // base64 idea from yellowberry
     let base64config, configs;
@@ -25,54 +25,34 @@ $(function () {
         console.warn("Unable to parse server config:", err);
     }
 
-    if (!Array.prototype.indexOf) {
-        Array.prototype.indexOf = function (elt /*, from*/) {
-            var len = this.length >>> 0;
-            var from = Number(arguments[1]) || 0;
-            from = from < 0 ? Math.ceil(from) : Math.floor(from);
-            if (from < 0) from += len;
-            for (; from < len; from++) {
-                if (from in this && this[from] === elt) return from;
-            }
-            return -1;
-        };
-    }
-
-    window.requestAnimationFrame =
-        window.requestAnimationFrame ||
-        window.mozRequestAnimationFrame ||
-        window.webkitRequestAnimationFrame ||
-        window.msRequestAnimationFrame ||
-        function (cb) {
-            setTimeout(cb, 1000 / 30);
-        };
-
-    var DEFAULT_VELOCITY = 0.5;
-
-    var TIMING_TARGET = 1000;
+    const DEFAULT_VELOCITY = 0.5;
+    const TIMING_TARGET = 1000;
 
     // Utility
 
     ////////////////////////////////////////////////////////////////
 
-    var Rect = function (x, y, w, h) {
-        this.x = x;
-        this.y = y;
-        this.w = w;
-        this.h = h;
-        this.x2 = x + w;
-        this.y2 = y + h;
-    };
-    Rect.prototype.contains = function (x, y) {
-        return x >= this.x && x <= this.x2 && y >= this.y && y <= this.y2;
-    };
+    class Rect {
+        constructor(x, y, w, h) {
+            this.x = x;
+            this.y = y;
+            this.w = w;
+            this.h = h;
+            this.x2 = x + w;
+            this.y2 = y + h;
+        }
+
+        contains(x, y) {
+            return x >= this.x && x <= this.x2 && y >= this.y && y <= this.y2;
+        }
+    }
 
     // performing translation
 
     ////////////////////////////////////////////////////////////////
 
-    var Translation = (function () {
-        var strings = {
+    const Translation = (function () {
+        const strings = {
             "people are playing": {
                 pt: "pessoas estão jogando",
                 es: "personas están jugando",
@@ -146,11 +126,11 @@ $(function () {
             // todo: Connecting, Offline mode, input placeholder, Notifications
         };
 
-        var setLanguage = function (lang) {
+        const setLanguage = function (lang) {
             language = lang;
         };
 
-        var getLanguage = function () {
+        const getLanguage = function () {
             if (
                 window.navigator &&
                 navigator.language &&
@@ -162,19 +142,19 @@ $(function () {
             }
         };
 
-        var get = function (text, lang) {
+        const get = function (text, lang) {
             if (typeof lang === "undefined") lang = language;
-            var row = strings[text];
+            const row = strings[text];
             if (row == undefined) return text;
-            var string = row[lang];
+            const string = row[lang];
             if (string == undefined) return text;
             return string;
         };
 
-        var perform = function (lang) {
+        const perform = function (lang) {
             if (typeof lang === "undefined") lang = language;
             $(".translate").each(function (i, ele) {
-                var th = $(this);
+                const th = $(this);
                 if (ele.tagName && ele.tagName.toLowerCase() == "input") {
                     if (typeof ele.placeholder != "undefined") {
                         th.attr(
@@ -188,13 +168,13 @@ $(function () {
             });
         };
 
-        var language = getLanguage();
+        const language = getLanguage();
 
         return {
-            setLanguage: setLanguage,
-            getLanguage: getLanguage,
-            get: get,
-            perform: perform
+            setLanguage,
+            getLanguage,
+            get,
+            perform
         };
     })();
 
@@ -204,879 +184,933 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
-    var AudioEngine = function () {};
+    class AudioEngine {
+        constructor() {}
 
-    AudioEngine.prototype.init = function (cb) {
-        this.volume = 0.6;
-        this.sounds = {};
-        this.paused = true;
-        return this;
-    };
+        init(cb) {
+            this.volume = 0.6;
+            this.sounds = {};
+            this.paused = true;
+            return this;
+        }
 
-    AudioEngine.prototype.load = function (id, url, cb) {};
+        load(id, url, cb) {}
 
-    AudioEngine.prototype.play = function () {};
+        play() {}
 
-    AudioEngine.prototype.stop = function () {};
+        stop() {}
 
-    AudioEngine.prototype.setVolume = function (vol) {
-        this.volume = vol;
-    };
+        setVolume(vol) {
+            this.volume = vol;
+        }
 
-    AudioEngine.prototype.resume = function () {
-        this.paused = false;
-    };
+        resume() {
+            this.paused = false;
+        }
+    }
 
-    AudioEngineWeb = function () {
-        this.threshold = 1000;
-        this.worker = new Worker("/workerTimer.js");
-        var self = this;
-        this.worker.onmessage = function (event) {
-            if (event.data.args)
-                if (event.data.args.action == 0) {
-                    self.actualPlay(
-                        event.data.args.id,
-                        event.data.args.vol,
-                        event.data.args.time,
-                        event.data.args.part_id
+    class AudioEngineWeb extends AudioEngine {
+        constructor() {
+            super();
+
+            this.threshold = 1000;
+            this.worker = new Worker("/workerTimer.js");
+
+            const self = this;
+
+            this.worker.onmessage = function (event) {
+                if (event.data.args)
+                    if (event.data.args.action == 0) {
+                        self.actualPlay(
+                            event.data.args.id,
+                            event.data.args.vol,
+                            event.data.args.time,
+                            event.data.args.part_id
+                        );
+                    } else {
+                        self.actualStop(
+                            event.data.args.id,
+                            event.data.args.time,
+                            event.data.args.part_id
+                        );
+                    }
+            };
+        }
+
+        init(cb) {
+            AudioEngine.prototype.init.call(this);
+
+            this.context = new AudioContext({ latencyHint: "interactive" });
+
+            this.masterGain = this.context.createGain();
+            this.masterGain.connect(this.context.destination);
+            this.masterGain.gain.value = this.volume;
+
+            this.limiterNode = this.context.createDynamicsCompressor();
+            this.limiterNode.threshold.value = -10;
+            this.limiterNode.knee.value = 0;
+            this.limiterNode.ratio.value = 20;
+            this.limiterNode.attack.value = 0;
+            this.limiterNode.release.value = 0.1;
+            this.limiterNode.connect(this.masterGain);
+
+            // for synth mix
+            this.pianoGain = this.context.createGain();
+            this.pianoGain.gain.value = 0.5;
+            this.pianoGain.connect(this.limiterNode);
+            this.synthGain = this.context.createGain();
+            this.synthGain.gain.value = 0.5;
+            this.synthGain.connect(this.limiterNode);
+
+            this.playings = {};
+
+            if (cb) setTimeout(cb, 0);
+            return this;
+        }
+
+        load(id, url, cb) {
+            const audio = this;
+            const req = new XMLHttpRequest();
+            req.open("GET", url);
+            req.responseType = "arraybuffer";
+            req.addEventListener("readystatechange", function (evt) {
+                if (req.readyState !== 4) return;
+                try {
+                    audio.context.decodeAudioData(
+                        req.response,
+                        function (buffer) {
+                            audio.sounds[id] = buffer;
+                            if (cb) cb();
+                        }
                     );
-                } else {
-                    self.actualStop(
-                        event.data.args.id,
-                        event.data.args.time,
-                        event.data.args.part_id
-                    );
-                }
-        };
-    };
-
-    AudioEngineWeb.prototype = new AudioEngine();
-
-    AudioEngineWeb.prototype.init = function (cb) {
-        AudioEngine.prototype.init.call(this);
-
-        this.context = new AudioContext({ latencyHint: "interactive" });
-
-        this.masterGain = this.context.createGain();
-        this.masterGain.connect(this.context.destination);
-        this.masterGain.gain.value = this.volume;
-
-        this.limiterNode = this.context.createDynamicsCompressor();
-        this.limiterNode.threshold.value = -10;
-        this.limiterNode.knee.value = 0;
-        this.limiterNode.ratio.value = 20;
-        this.limiterNode.attack.value = 0;
-        this.limiterNode.release.value = 0.1;
-        this.limiterNode.connect(this.masterGain);
-
-        // for synth mix
-        this.pianoGain = this.context.createGain();
-        this.pianoGain.gain.value = 0.5;
-        this.pianoGain.connect(this.limiterNode);
-        this.synthGain = this.context.createGain();
-        this.synthGain.gain.value = 0.5;
-        this.synthGain.connect(this.limiterNode);
-
-        this.playings = {};
-
-        if (cb) setTimeout(cb, 0);
-        return this;
-    };
-
-    AudioEngineWeb.prototype.load = function (id, url, cb) {
-        var audio = this;
-        var req = new XMLHttpRequest();
-        req.open("GET", url);
-        req.responseType = "arraybuffer";
-        req.addEventListener("readystatechange", function (evt) {
-            if (req.readyState !== 4) return;
-            try {
-                audio.context.decodeAudioData(req.response, function (buffer) {
-                    audio.sounds[id] = buffer;
-                    if (cb) cb();
-                });
-            } catch (e) {
-                /*throw new Error(e.message
-					+ " / id: " + id
-					+ " / url: " + url
-					+ " / status: " + req.status
-					+ " / ArrayBuffer: " + (req.response instanceof ArrayBuffer)
-					+ " / byteLength: " + (req.response && req.response.byteLength ? req.response.byteLength : "undefined"));*/
-                new Notification({
-                    id: "audio-download-error",
-                    title: "Problem",
-                    text:
-                        "For some reason, an audio download failed with a status of " +
-                        req.status +
-                        ". ",
-                    target: "#piano",
-                    duration: 10000
-                });
-            }
-        });
-        req.send();
-    };
-
-    AudioEngineWeb.prototype.actualPlay = function (id, vol, time, part_id) {
-        //the old play(), but with time insted of delay_ms.
-        if (this.paused) return;
-        if (!this.sounds.hasOwnProperty(id)) return;
-        var source = this.context.createBufferSource();
-        source.buffer = this.sounds[id];
-        var gain = this.context.createGain();
-        gain.gain.value = vol;
-        source.connect(gain);
-        gain.connect(this.pianoGain);
-        source.start(time);
-        // Patch from ste-art remedies stuttering under heavy load
-        if (this.playings[id]) {
-            var playing = this.playings[id];
-            playing.gain.gain.setValueAtTime(playing.gain.gain.value, time);
-            playing.gain.gain.linearRampToValueAtTime(0.0, time + 0.2);
-            playing.source.stop(time + 0.21);
-            if (enableSynth && playing.voice) {
-                playing.voice.stop(time);
-            }
-        }
-        this.playings[id] = { source: source, gain: gain, part_id: part_id };
-
-        if (enableSynth) {
-            this.playings[id].voice = new synthVoice(id, time);
-        }
-    };
-
-    AudioEngineWeb.prototype.play = function (id, vol, delay_ms, part_id) {
-        if (!this.sounds.hasOwnProperty(id)) return;
-        var time = this.context.currentTime + delay_ms / 1000; //calculate time on note receive.
-        var delay = delay_ms - this.threshold;
-        if (delay <= 0) this.actualPlay(id, vol, time, part_id);
-        else {
-            this.worker.postMessage({
-                delay: delay,
-                args: {
-                    action: 0 /*play*/,
-                    id: id,
-                    vol: vol,
-                    time: time,
-                    part_id: part_id
-                }
-            }); // but start scheduling right before play.
-        }
-    };
-
-    AudioEngineWeb.prototype.actualStop = function (id, time, part_id) {
-        if (
-            this.playings.hasOwnProperty(id) &&
-            this.playings[id] &&
-            this.playings[id].part_id === part_id
-        ) {
-            var gain = this.playings[id].gain.gain;
-            gain.setValueAtTime(gain.value, time);
-            gain.linearRampToValueAtTime(gain.value * 0.1, time + 0.16);
-            gain.linearRampToValueAtTime(0.0, time + 0.4);
-            this.playings[id].source.stop(time + 0.41);
-
-            if (this.playings[id].voice) {
-                this.playings[id].voice.stop(time);
-            }
-
-            this.playings[id] = null;
-        }
-    };
-
-    AudioEngineWeb.prototype.stop = function (id, delay_ms, part_id) {
-        var time = this.context.currentTime + delay_ms / 1000;
-        var delay = delay_ms - this.threshold;
-        if (delay <= 0) this.actualStop(id, time, part_id);
-        else {
-            this.worker.postMessage({
-                delay: delay,
-                args: {
-                    action: 1 /*stop*/,
-                    id: id,
-                    time: time,
-                    part_id: part_id
+                } catch (e) {
+                    /*throw new Error(e.message
+                        + " / id: " + id
+                        + " / url: " + url
+                        + " / status: " + req.status
+                        + " / ArrayBuffer: " + (req.response instanceof ArrayBuffer)
+                        + " / byteLength: " + (req.response && req.response.byteLength ? req.response.byteLength : "undefined"));*/
+                    new Notification({
+                        id: "audio-download-error",
+                        title: "Problem",
+                        text:
+                            "For some reason, an audio download failed with a status of " +
+                            req.status +
+                            ". ",
+                        target: "#piano",
+                        duration: 10000
+                    });
                 }
             });
+            req.send();
         }
-    };
 
-    AudioEngineWeb.prototype.setVolume = function (vol) {
-        AudioEngine.prototype.setVolume.call(this, vol);
-        this.masterGain.gain.value = this.volume;
-    };
+        actualPlay(id, vol, time, part_id) {
+            //the old play(), but with time insted of delay_ms.
+            if (this.paused) return;
+            if (!this.sounds.hasOwnProperty(id)) return;
 
-    AudioEngineWeb.prototype.resume = function () {
-        this.paused = false;
-        this.context.resume();
-    };
+            const source = this.context.createBufferSource();
+            source.buffer = this.sounds[id];
+
+            const gain = this.context.createGain();
+            gain.gain.value = vol;
+
+            source.connect(gain);
+            gain.connect(this.pianoGain);
+
+            source.start(time);
+
+            // Patch from ste-art remedies stuttering under heavy load
+            if (this.playings[id]) {
+                const playing = this.playings[id];
+
+                playing.gain.gain.setValueAtTime(playing.gain.gain.value, time);
+                playing.gain.gain.linearRampToValueAtTime(0.0, time + 0.2);
+                playing.source.stop(time + 0.21);
+
+                if (enableSynth && playing.voice) {
+                    playing.voice.stop(time);
+                }
+            }
+
+            this.playings[id] = {
+                source: source,
+                gain: gain,
+                part_id: part_id
+            };
+
+            if (enableSynth) {
+                this.playings[id].voice = new synthVoice(id, time);
+            }
+        }
+
+        play(id, vol, delay_ms, part_id) {
+            if (!this.sounds.hasOwnProperty(id)) return;
+
+            const time = this.context.currentTime + delay_ms / 1000; //calculate time on note receive.
+            const delay = delay_ms - this.threshold;
+
+            if (delay <= 0) {
+                this.actualPlay(id, vol, time, part_id);
+            } else {
+                this.worker.postMessage({
+                    delay: delay,
+                    args: {
+                        action: 0 /*play*/,
+                        id,
+                        vol,
+                        time,
+                        part_id
+                    }
+                }); // but start scheduling right before play.
+            }
+        }
+
+        actualStop(id, time, part_id) {
+            if (
+                this.playings.hasOwnProperty(id) &&
+                this.playings[id] &&
+                this.playings[id].part_id === part_id
+            ) {
+                const gain = this.playings[id].gain.gain;
+
+                gain.setValueAtTime(gain.value, time);
+                gain.linearRampToValueAtTime(gain.value * 0.1, time + 0.16);
+                gain.linearRampToValueAtTime(0.0, time + 0.4);
+
+                this.playings[id].source.stop(time + 0.41);
+
+                if (this.playings[id].voice) {
+                    this.playings[id].voice.stop(time);
+                }
+
+                this.playings[id] = null;
+            }
+        }
+
+        stop(id, delay_ms, part_id) {
+            const time = this.context.currentTime + delay_ms / 1000;
+            const delay = delay_ms - this.threshold;
+
+            if (delay <= 0) {
+                this.actualStop(id, time, part_id);
+            } else {
+                this.worker.postMessage({
+                    delay: delay,
+                    args: {
+                        action: 1 /*stop*/,
+                        id: id,
+                        time: time,
+                        part_id: part_id
+                    }
+                });
+            }
+        }
+
+        setVolume(vol) {
+            super.setVolume(vol);
+            this.masterGain.gain.value = this.volume;
+        }
+
+        resume() {
+            this.paused = false;
+            this.context.resume();
+        }
+    }
 
     // Renderer classes
 
     ////////////////////////////////////////////////////////////////
 
-    var Renderer = function () {};
+    class Renderer {
+        constructor() {}
 
-    Renderer.prototype.init = function (piano) {
-        this.piano = piano;
-        this.resize();
-        return this;
-    };
+        init(piano) {
+            this.piano = piano;
+            this.resize();
+            return this;
+        }
 
-    Renderer.prototype.resize = function (width, height) {
-        if (typeof width == "undefined")
-            width = $(this.piano.rootElement).width();
-        if (typeof height == "undefined") height = Math.floor(width * 0.2);
-        $(this.piano.rootElement).css({
-            height: height + "px",
-            marginTop: Math.floor($(window).height() / 2 - height / 2) + "px"
-        });
-        this.width = width * window.devicePixelRatio;
-        this.height = height * window.devicePixelRatio;
-    };
+        resize(width, height) {
+            if (typeof width == "undefined")
+                width = $(this.piano.rootElement).width();
 
-    Renderer.prototype.visualize = function (key, color) {};
+            if (typeof height == "undefined") height = Math.floor(width * 0.2);
 
-    var CanvasRenderer = function () {
-        Renderer.call(this);
-    };
+            $(this.piano.rootElement).css({
+                height: height + "px",
+                marginTop:
+                    Math.floor($(window).height() / 2 - height / 2) + "px"
+            });
 
-    CanvasRenderer.prototype = new Renderer();
+            this.width = width * window.devicePixelRatio;
+            this.height = height * window.devicePixelRatio;
+        }
 
-    CanvasRenderer.prototype.init = function (piano) {
-        this.canvas = document.createElement("canvas");
-        this.ctx = this.canvas.getContext("2d");
-        piano.rootElement.appendChild(this.canvas);
+        visualize(key, color) {}
+    }
 
-        Renderer.prototype.init.call(this, piano); // calls resize()
+    class CanvasRenderer extends Renderer {
+        constructor() {
+            super();
+        }
 
-        // create render loop
-        var self = this;
-        var render = function () {
-            self.redraw();
+        static isSupported() {
+            const canvas = document.createElement("canvas");
+            return !!(canvas.getContext && canvas.getContext("2d"));
+        }
+
+        static translateMouseEvent(evt) {
+            let element = evt.target;
+            let offx = 0;
+            let offy = 0;
+
+            do {
+                if (!element) break; // wtf, wtf?
+
+                offx += element.offsetLeft;
+                offy += element.offsetTop;
+            } while ((element = element.offsetParent));
+
+            return {
+                x: (evt.pageX - offx) * window.devicePixelRatio,
+                y: (evt.pageY - offy) * window.devicePixelRatio
+            };
+        }
+
+        init(piano) {
+            this.canvas = document.createElement("canvas");
+            this.ctx = this.canvas.getContext("2d");
+            piano.rootElement.appendChild(this.canvas);
+
+            super.init(piano); // calls resize()
+
+            // create render loop
+            const self = this;
+            const render = function () {
+                self.redraw();
+                requestAnimationFrame(render);
+            };
+
             requestAnimationFrame(render);
-        };
-        requestAnimationFrame(render);
 
-        // add event listeners
-        var mouse_down = false;
-        var last_key = null;
-        $(piano.rootElement).mousedown(function (event) {
-            mouse_down = true;
-            //event.stopPropagation();
-            event.preventDefault();
+            // add event listeners
+            let mouse_down = false;
+            let last_key = null;
 
-            var pos = CanvasRenderer.translateMouseEvent(event);
-            var hit = self.getHit(pos.x, pos.y);
-            if (hit) {
-                press(hit.key.note, hit.v);
-                last_key = hit.key;
-            }
-        });
-        piano.rootElement.addEventListener(
-            "touchstart",
-            function (event) {
+            $(piano.rootElement).mousedown(function (event) {
                 mouse_down = true;
                 //event.stopPropagation();
                 event.preventDefault();
-                for (var i in event.changedTouches) {
-                    var pos = CanvasRenderer.translateMouseEvent(
-                        event.changedTouches[i]
-                    );
-                    var hit = self.getHit(pos.x, pos.y);
-                    if (hit) {
-                        press(hit.key.note, hit.v);
-                        last_key = hit.key;
+
+                const pos = CanvasRenderer.translateMouseEvent(event);
+                const hit = self.getHit(pos.x, pos.y);
+
+                if (hit) {
+                    press(hit.key.note, hit.v);
+                    last_key = hit.key;
+                }
+            });
+
+            piano.rootElement.addEventListener(
+                "touchstart",
+                function (event) {
+                    mouse_down = true;
+                    //event.stopPropagation();
+                    event.preventDefault();
+                    for (let i in event.changedTouches) {
+                        let pos = CanvasRenderer.translateMouseEvent(
+                            event.changedTouches[i]
+                        );
+
+                        let hit = self.getHit(pos.x, pos.y);
+
+                        if (hit) {
+                            press(hit.key.note, hit.v);
+                            last_key = hit.key;
+                        }
                     }
-                }
-            },
-            false
-        );
-        $(window).mouseup(function (event) {
-            if (last_key) {
-                release(last_key.note);
-            }
-            mouse_down = false;
-            last_key = null;
-        });
-        /*$(piano.rootElement).mousemove(function(event) {
-			if(!mouse_down) return;
-			var pos = CanvasRenderer.translateMouseEvent(event);
-			var hit = self.getHit(pos.x, pos.y);
-			if(hit && hit.key != last_key) {
-				press(hit.key.note, hit.v);
-				last_key = hit.key;
-			}
-		});*/
-
-        return this;
-    };
-
-    CanvasRenderer.prototype.resize = function (width, height) {
-        Renderer.prototype.resize.call(this, width, height);
-        if (this.width < 52 * 2) this.width = 52 * 2;
-        if (this.height < this.width * 0.2)
-            this.height = Math.floor(this.width * 0.2);
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
-        this.canvas.style.width = this.width / window.devicePixelRatio + "px";
-        this.canvas.style.height = this.height / window.devicePixelRatio + "px";
-
-        // calculate key sizes
-        this.whiteKeyWidth = Math.floor(this.width / 52);
-        this.whiteKeyHeight = Math.floor(this.height * 0.9);
-        this.blackKeyWidth = Math.floor(this.whiteKeyWidth * 0.75);
-        this.blackKeyHeight = Math.floor(this.height * 0.5);
-
-        this.blackKeyOffset = Math.floor(
-            this.whiteKeyWidth - this.blackKeyWidth / 2
-        );
-        this.keyMovement = Math.floor(this.whiteKeyHeight * 0.015);
-
-        this.whiteBlipWidth = Math.floor(this.whiteKeyWidth * 0.7);
-        this.whiteBlipHeight = Math.floor(this.whiteBlipWidth * 0.8);
-        this.whiteBlipX = Math.floor(
-            (this.whiteKeyWidth - this.whiteBlipWidth) / 2
-        );
-        this.whiteBlipY = Math.floor(
-            this.whiteKeyHeight - this.whiteBlipHeight * 1.2
-        );
-        this.blackBlipWidth = Math.floor(this.blackKeyWidth * 0.7);
-        this.blackBlipHeight = Math.floor(this.blackBlipWidth * 0.8);
-        this.blackBlipY = Math.floor(
-            this.blackKeyHeight - this.blackBlipHeight * 1.2
-        );
-        this.blackBlipX = Math.floor(
-            (this.blackKeyWidth - this.blackBlipWidth) / 2
-        );
-
-        // prerender white key
-        this.whiteKeyRender = document.createElement("canvas");
-        this.whiteKeyRender.width = this.whiteKeyWidth;
-        this.whiteKeyRender.height = this.height + 10;
-        var ctx = this.whiteKeyRender.getContext("2d");
-        if (ctx.createLinearGradient) {
-            var gradient = ctx.createLinearGradient(
-                0,
-                0,
-                0,
-                this.whiteKeyHeight
+                },
+                false
             );
-            gradient.addColorStop(0, "#eee");
-            gradient.addColorStop(0.75, "#fff");
-            gradient.addColorStop(1, "#dad4d4");
-            ctx.fillStyle = gradient;
-        } else {
-            ctx.fillStyle = "#fff";
-        }
-        ctx.strokeStyle = "#000";
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.lineWidth = 10;
-        ctx.strokeRect(
-            ctx.lineWidth / 2,
-            ctx.lineWidth / 2,
-            this.whiteKeyWidth - ctx.lineWidth,
-            this.whiteKeyHeight - ctx.lineWidth
-        );
-        ctx.lineWidth = 4;
-        ctx.fillRect(
-            ctx.lineWidth / 2,
-            ctx.lineWidth / 2,
-            this.whiteKeyWidth - ctx.lineWidth,
-            this.whiteKeyHeight - ctx.lineWidth
-        );
 
-        // prerender black key
-        this.blackKeyRender = document.createElement("canvas");
-        this.blackKeyRender.width = this.blackKeyWidth + 10;
-        this.blackKeyRender.height = this.blackKeyHeight + 10;
-        var ctx = this.blackKeyRender.getContext("2d");
-        if (ctx.createLinearGradient) {
-            var gradient = ctx.createLinearGradient(
-                0,
-                0,
-                0,
-                this.blackKeyHeight
-            );
-            gradient.addColorStop(0, "#000");
-            gradient.addColorStop(1, "#444");
-            ctx.fillStyle = gradient;
-        } else {
-            ctx.fillStyle = "#000";
-        }
-        ctx.strokeStyle = "#222";
-        ctx.lineJoin = "round";
-        ctx.lineCap = "round";
-        ctx.lineWidth = 8;
-        ctx.strokeRect(
-            ctx.lineWidth / 2,
-            ctx.lineWidth / 2,
-            this.blackKeyWidth - ctx.lineWidth,
-            this.blackKeyHeight - ctx.lineWidth
-        );
-        ctx.lineWidth = 4;
-        ctx.fillRect(
-            ctx.lineWidth / 2,
-            ctx.lineWidth / 2,
-            this.blackKeyWidth - ctx.lineWidth,
-            this.blackKeyHeight - ctx.lineWidth
-        );
-
-        // prerender shadows
-        this.shadowRender = [];
-        var y = -this.canvas.height * 2;
-        for (var j = 0; j < 2; j++) {
-            var canvas = document.createElement("canvas");
-            this.shadowRender[j] = canvas;
-            canvas.width = this.canvas.width;
-            canvas.height = this.canvas.height;
-            var ctx = canvas.getContext("2d");
-            var sharp = j ? true : false;
-            ctx.lineJoin = "round";
-            ctx.lineCap = "round";
-            ctx.lineWidth = 1;
-            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-            ctx.shadowBlur = this.keyMovement * 3;
-            ctx.shadowOffsetY = -y + this.keyMovement;
-            if (sharp) {
-                ctx.shadowOffsetX = this.keyMovement;
-            } else {
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = -y + this.keyMovement;
-            }
-            for (var i in this.piano.keys) {
-                if (!this.piano.keys.hasOwnProperty(i)) continue;
-                var key = this.piano.keys[i];
-                if (key.sharp != sharp) continue;
-
-                if (key.sharp) {
-                    ctx.fillRect(
-                        this.blackKeyOffset +
-                            this.whiteKeyWidth * key.spatial +
-                            ctx.lineWidth / 2,
-                        y + ctx.lineWidth / 2,
-                        this.blackKeyWidth - ctx.lineWidth,
-                        this.blackKeyHeight - ctx.lineWidth
-                    );
-                } else {
-                    ctx.fillRect(
-                        this.whiteKeyWidth * key.spatial + ctx.lineWidth / 2,
-                        y + ctx.lineWidth / 2,
-                        this.whiteKeyWidth - ctx.lineWidth,
-                        this.whiteKeyHeight - ctx.lineWidth
-                    );
+            $(window).mouseup(function (event) {
+                if (last_key) {
+                    release(last_key.note);
                 }
-            }
+                mouse_down = false;
+                last_key = null;
+            });
+
+            /*$(piano.rootElement).mousemove(function(event) {
+                if(!mouse_down) return;
+                var pos = CanvasRenderer.translateMouseEvent(event);
+                var hit = self.getHit(pos.x, pos.y);
+                if(hit && hit.key != last_key) {
+                    press(hit.key.note, hit.v);
+                    last_key = hit.key;
+                }
+            });*/
+            return this;
         }
 
-        // update key rects
-        for (var i in this.piano.keys) {
-            if (!this.piano.keys.hasOwnProperty(i)) continue;
-            var key = this.piano.keys[i];
-            if (key.sharp) {
-                key.rect = new Rect(
-                    this.blackKeyOffset + this.whiteKeyWidth * key.spatial,
+        resize(width, height) {
+            Renderer.prototype.resize.call(this, width, height);
+            if (this.width < 52 * 2) this.width = 52 * 2;
+            if (this.height < this.width * 0.2)
+                this.height = Math.floor(this.width * 0.2);
+            this.canvas.width = this.width;
+            this.canvas.height = this.height;
+            this.canvas.style.width =
+                this.width / window.devicePixelRatio + "px";
+            this.canvas.style.height =
+                this.height / window.devicePixelRatio + "px";
+
+            // calculate key sizes
+            this.whiteKeyWidth = Math.floor(this.width / 52);
+            this.whiteKeyHeight = Math.floor(this.height * 0.9);
+            this.blackKeyWidth = Math.floor(this.whiteKeyWidth * 0.75);
+            this.blackKeyHeight = Math.floor(this.height * 0.5);
+
+            this.blackKeyOffset = Math.floor(
+                this.whiteKeyWidth - this.blackKeyWidth / 2
+            );
+            this.keyMovement = Math.floor(this.whiteKeyHeight * 0.015);
+
+            this.whiteBlipWidth = Math.floor(this.whiteKeyWidth * 0.7);
+            this.whiteBlipHeight = Math.floor(this.whiteBlipWidth * 0.8);
+            this.whiteBlipX = Math.floor(
+                (this.whiteKeyWidth - this.whiteBlipWidth) / 2
+            );
+            this.whiteBlipY = Math.floor(
+                this.whiteKeyHeight - this.whiteBlipHeight * 1.2
+            );
+            this.blackBlipWidth = Math.floor(this.blackKeyWidth * 0.7);
+            this.blackBlipHeight = Math.floor(this.blackBlipWidth * 0.8);
+            this.blackBlipY = Math.floor(
+                this.blackKeyHeight - this.blackBlipHeight * 1.2
+            );
+            this.blackBlipX = Math.floor(
+                (this.blackKeyWidth - this.blackBlipWidth) / 2
+            );
+
+            // prerender white key
+            this.whiteKeyRender = document.createElement("canvas");
+            this.whiteKeyRender.width = this.whiteKeyWidth;
+            this.whiteKeyRender.height = this.height + 10;
+            var ctx = this.whiteKeyRender.getContext("2d");
+            if (ctx.createLinearGradient) {
+                var gradient = ctx.createLinearGradient(
                     0,
-                    this.blackKeyWidth,
-                    this.blackKeyHeight
-                );
-            } else {
-                key.rect = new Rect(
-                    this.whiteKeyWidth * key.spatial,
                     0,
-                    this.whiteKeyWidth,
+                    0,
                     this.whiteKeyHeight
                 );
+                gradient.addColorStop(0, "#eee");
+                gradient.addColorStop(0.75, "#fff");
+                gradient.addColorStop(1, "#dad4d4");
+                ctx.fillStyle = gradient;
+            } else {
+                ctx.fillStyle = "#fff";
             }
-        }
-    };
+            ctx.strokeStyle = "#000";
+            ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+            ctx.lineWidth = 10;
+            ctx.strokeRect(
+                ctx.lineWidth / 2,
+                ctx.lineWidth / 2,
+                this.whiteKeyWidth - ctx.lineWidth,
+                this.whiteKeyHeight - ctx.lineWidth
+            );
+            ctx.lineWidth = 4;
+            ctx.fillRect(
+                ctx.lineWidth / 2,
+                ctx.lineWidth / 2,
+                this.whiteKeyWidth - ctx.lineWidth,
+                this.whiteKeyHeight - ctx.lineWidth
+            );
 
-    CanvasRenderer.prototype.visualize = function (key, color) {
-        key.timePlayed = Date.now();
-        key.blips.push({ time: key.timePlayed, color: color });
-    };
+            // prerender black key
+            this.blackKeyRender = document.createElement("canvas");
+            this.blackKeyRender.width = this.blackKeyWidth + 10;
+            this.blackKeyRender.height = this.blackKeyHeight + 10;
+            var ctx = this.blackKeyRender.getContext("2d");
+            if (ctx.createLinearGradient) {
+                var gradient = ctx.createLinearGradient(
+                    0,
+                    0,
+                    0,
+                    this.blackKeyHeight
+                );
+                gradient.addColorStop(0, "#000");
+                gradient.addColorStop(1, "#444");
+                ctx.fillStyle = gradient;
+            } else {
+                ctx.fillStyle = "#000";
+            }
+            ctx.strokeStyle = "#222";
+            ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+            ctx.lineWidth = 8;
+            ctx.strokeRect(
+                ctx.lineWidth / 2,
+                ctx.lineWidth / 2,
+                this.blackKeyWidth - ctx.lineWidth,
+                this.blackKeyHeight - ctx.lineWidth
+            );
+            ctx.lineWidth = 4;
+            ctx.fillRect(
+                ctx.lineWidth / 2,
+                ctx.lineWidth / 2,
+                this.blackKeyWidth - ctx.lineWidth,
+                this.blackKeyHeight - ctx.lineWidth
+            );
 
-    CanvasRenderer.prototype.redraw = function () {
-        var now = Date.now();
-        var timeLoadedEnd = now - 1000;
-        var timePlayedEnd = now - 100;
-        var timeBlipEnd = now - 1000;
+            // prerender shadows
+            this.shadowRender = [];
+            var y = -this.canvas.height * 2;
+            for (var j = 0; j < 2; j++) {
+                var canvas = document.createElement("canvas");
+                this.shadowRender[j] = canvas;
+                canvas.width = this.canvas.width;
+                canvas.height = this.canvas.height;
+                var ctx = canvas.getContext("2d");
+                var sharp = j ? true : false;
+                ctx.lineJoin = "round";
+                ctx.lineCap = "round";
+                ctx.lineWidth = 1;
+                ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+                ctx.shadowBlur = this.keyMovement * 3;
+                ctx.shadowOffsetY = -y + this.keyMovement;
+                if (sharp) {
+                    ctx.shadowOffsetX = this.keyMovement;
+                } else {
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = -y + this.keyMovement;
+                }
+                for (var i in this.piano.keys) {
+                    if (!this.piano.keys.hasOwnProperty(i)) continue;
+                    var key = this.piano.keys[i];
+                    if (key.sharp != sharp) continue;
 
-        this.ctx.save();
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        // draw all keys
-        for (var j = 0; j < 2; j++) {
-            this.ctx.globalAlpha = 1.0;
-            this.ctx.drawImage(this.shadowRender[j], 0, 0);
-            var sharp = j ? true : false;
+                    if (key.sharp) {
+                        ctx.fillRect(
+                            this.blackKeyOffset +
+                                this.whiteKeyWidth * key.spatial +
+                                ctx.lineWidth / 2,
+                            y + ctx.lineWidth / 2,
+                            this.blackKeyWidth - ctx.lineWidth,
+                            this.blackKeyHeight - ctx.lineWidth
+                        );
+                    } else {
+                        ctx.fillRect(
+                            this.whiteKeyWidth * key.spatial +
+                                ctx.lineWidth / 2,
+                            y + ctx.lineWidth / 2,
+                            this.whiteKeyWidth - ctx.lineWidth,
+                            this.whiteKeyHeight - ctx.lineWidth
+                        );
+                    }
+                }
+            }
+
+            // update key rects
             for (var i in this.piano.keys) {
                 if (!this.piano.keys.hasOwnProperty(i)) continue;
                 var key = this.piano.keys[i];
-                if (key.sharp != sharp) continue;
-
-                if (!key.loaded) {
-                    this.ctx.globalAlpha = 0.2;
-                } else if (key.timeLoaded > timeLoadedEnd) {
-                    this.ctx.globalAlpha =
-                        ((now - key.timeLoaded) / 1000) * 0.8 + 0.2;
+                if (key.sharp) {
+                    key.rect = new Rect(
+                        this.blackKeyOffset + this.whiteKeyWidth * key.spatial,
+                        0,
+                        this.blackKeyWidth,
+                        this.blackKeyHeight
+                    );
                 } else {
-                    this.ctx.globalAlpha = 1.0;
-                }
-                var y = 0;
-                if (key.timePlayed > timePlayedEnd) {
-                    y = Math.floor(
-                        this.keyMovement -
-                            ((now - key.timePlayed) / 100) * this.keyMovement
+                    key.rect = new Rect(
+                        this.whiteKeyWidth * key.spatial,
+                        0,
+                        this.whiteKeyWidth,
+                        this.whiteKeyHeight
                     );
                 }
-                var x = Math.floor(
-                    key.sharp
-                        ? this.blackKeyOffset + this.whiteKeyWidth * key.spatial
-                        : this.whiteKeyWidth * key.spatial
-                );
-                var image = key.sharp
-                    ? this.blackKeyRender
-                    : this.whiteKeyRender;
-                this.ctx.drawImage(image, x, y);
+            }
+        }
 
-                // render blips
-                if (key.blips.length) {
-                    var alpha = this.ctx.globalAlpha;
-                    var w, h;
-                    if (key.sharp) {
-                        x += this.blackBlipX;
-                        y = this.blackBlipY;
-                        w = this.blackBlipWidth;
-                        h = this.blackBlipHeight;
+        visualize(key, color) {
+            key.timePlayed = Date.now();
+            key.blips.push({ time: key.timePlayed, color: color });
+        }
+
+        redraw() {
+            var now = Date.now();
+            var timeLoadedEnd = now - 1000;
+            var timePlayedEnd = now - 100;
+            var timeBlipEnd = now - 1000;
+
+            this.ctx.save();
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            // draw all keys
+            for (var j = 0; j < 2; j++) {
+                this.ctx.globalAlpha = 1.0;
+                this.ctx.drawImage(this.shadowRender[j], 0, 0);
+                var sharp = j ? true : false;
+                for (var i in this.piano.keys) {
+                    if (!this.piano.keys.hasOwnProperty(i)) continue;
+                    var key = this.piano.keys[i];
+                    if (key.sharp != sharp) continue;
+
+                    if (!key.loaded) {
+                        this.ctx.globalAlpha = 0.2;
+                    } else if (key.timeLoaded > timeLoadedEnd) {
+                        this.ctx.globalAlpha =
+                            ((now - key.timeLoaded) / 1000) * 0.8 + 0.2;
                     } else {
-                        x += this.whiteBlipX;
-                        y = this.whiteBlipY;
-                        w = this.whiteBlipWidth;
-                        h = this.whiteBlipHeight;
+                        this.ctx.globalAlpha = 1.0;
                     }
-                    for (var b = 0; b < key.blips.length; b++) {
-                        var blip = key.blips[b];
-                        if (blip.time > timeBlipEnd) {
-                            this.ctx.fillStyle = blip.color;
-                            this.ctx.globalAlpha =
-                                alpha - (now - blip.time) / 1000;
-                            this.ctx.fillRect(x, y, w, h);
+                    var y = 0;
+                    if (key.timePlayed > timePlayedEnd) {
+                        y = Math.floor(
+                            this.keyMovement -
+                                ((now - key.timePlayed) / 100) *
+                                    this.keyMovement
+                        );
+                    }
+                    var x = Math.floor(
+                        key.sharp
+                            ? this.blackKeyOffset +
+                                  this.whiteKeyWidth * key.spatial
+                            : this.whiteKeyWidth * key.spatial
+                    );
+                    var image = key.sharp
+                        ? this.blackKeyRender
+                        : this.whiteKeyRender;
+                    this.ctx.drawImage(image, x, y);
+
+                    // render blips
+                    if (key.blips.length) {
+                        var alpha = this.ctx.globalAlpha;
+                        var w, h;
+                        if (key.sharp) {
+                            x += this.blackBlipX;
+                            y = this.blackBlipY;
+                            w = this.blackBlipWidth;
+                            h = this.blackBlipHeight;
                         } else {
-                            key.blips.splice(b, 1);
-                            --b;
+                            x += this.whiteBlipX;
+                            y = this.whiteBlipY;
+                            w = this.whiteBlipWidth;
+                            h = this.whiteBlipHeight;
                         }
-                        y -= Math.floor(h * 1.1);
+                        for (var b = 0; b < key.blips.length; b++) {
+                            var blip = key.blips[b];
+                            if (blip.time > timeBlipEnd) {
+                                this.ctx.fillStyle = blip.color;
+                                this.ctx.globalAlpha =
+                                    alpha - (now - blip.time) / 1000;
+                                this.ctx.fillRect(x, y, w, h);
+                            } else {
+                                key.blips.splice(b, 1);
+                                --b;
+                            }
+                            y -= Math.floor(h * 1.1);
+                        }
                     }
                 }
             }
+            this.ctx.restore();
         }
-        this.ctx.restore();
-    };
 
-    CanvasRenderer.prototype.renderNoteLyrics = function () {
-        // render lyric
-        for (var part_id in this.noteLyrics) {
-            if (!this.noteLyrics.hasOwnProperty(i)) continue;
-            var lyric = this.noteLyrics[part_id];
-            var lyric_x = x;
-            var lyric_y = this.whiteKeyHeight + 1;
-            this.ctx.fillStyle = key.lyric.color;
-            var alpha = this.ctx.globalAlpha;
-            this.ctx.globalAlpha = alpha - (now - key.lyric.time) / 1000;
-            this.ctx.fillRect(x, y, 10, 10);
-        }
-    };
-
-    CanvasRenderer.prototype.getHit = function (x, y) {
-        for (var j = 0; j < 2; j++) {
-            var sharp = j ? false : true; // black keys first
-            for (var i in this.piano.keys) {
-                if (!this.piano.keys.hasOwnProperty(i)) continue;
-                var key = this.piano.keys[i];
-                if (key.sharp != sharp) continue;
-                if (key.rect.contains(x, y)) {
-                    var v =
-                        y /
-                        (key.sharp ? this.blackKeyHeight : this.whiteKeyHeight);
-                    v += 0.25;
-                    v *= DEFAULT_VELOCITY;
-                    if (v > 1.0) v = 1.0;
-                    return { key: key, v: v };
-                }
+        renderNoteLyrics() {
+            // render lyric
+            for (var part_id in this.noteLyrics) {
+                if (!this.noteLyrics.hasOwnProperty(i)) continue;
+                var lyric = this.noteLyrics[part_id];
+                var lyric_x = x;
+                var lyric_y = this.whiteKeyHeight + 1;
+                this.ctx.fillStyle = key.lyric.color;
+                var alpha = this.ctx.globalAlpha;
+                this.ctx.globalAlpha = alpha - (now - key.lyric.time) / 1000;
+                this.ctx.fillRect(x, y, 10, 10);
             }
         }
-        return null;
-    };
 
-    CanvasRenderer.isSupported = function () {
-        var canvas = document.createElement("canvas");
-        return !!(canvas.getContext && canvas.getContext("2d"));
-    };
-
-    CanvasRenderer.translateMouseEvent = function (evt) {
-        var element = evt.target;
-        var offx = 0;
-        var offy = 0;
-        do {
-            if (!element) break; // wtf, wtf?
-            offx += element.offsetLeft;
-            offy += element.offsetTop;
-        } while ((element = element.offsetParent));
-        return {
-            x: (evt.pageX - offx) * window.devicePixelRatio,
-            y: (evt.pageY - offy) * window.devicePixelRatio
-        };
-    };
+        getHit(x, y) {
+            for (var j = 0; j < 2; j++) {
+                var sharp = j ? false : true; // black keys first
+                for (var i in this.piano.keys) {
+                    if (!this.piano.keys.hasOwnProperty(i)) continue;
+                    var key = this.piano.keys[i];
+                    if (key.sharp != sharp) continue;
+                    if (key.rect.contains(x, y)) {
+                        var v =
+                            y /
+                            (key.sharp
+                                ? this.blackKeyHeight
+                                : this.whiteKeyHeight);
+                        v += 0.25;
+                        v *= DEFAULT_VELOCITY;
+                        if (v > 1.0) v = 1.0;
+                        return { key: key, v: v };
+                    }
+                }
+            }
+            return null;
+        }
+    }
 
     // Soundpack Stuff by electrashave ♥
 
     ////////////////////////////////////////////////////////////////
 
-    function SoundSelector(piano) {
-        this.initialized = false;
-        this.keys = piano.keys;
-        this.loading = {};
-        this.notification;
-        this.packs = [];
-        this.piano = piano;
-        this.soundSelection = localStorage.soundSelection
-            ? localStorage.soundSelection
-            : "MPP Classic";
-        this.addPack({
-            name: "MPP Classic",
-            keys: Object.keys(this.piano.keys),
-            ext: ".mp3",
-            url: "/sounds/mppclassic/"
-        });
-    }
+    class SoundSelector {
+        constructor(piano) {
+            this.initialized = false;
+            this.keys = piano.keys;
+            this.loading = {};
+            this.notification;
+            this.packs = [];
+            this.piano = piano;
+            this.soundSelection = localStorage.soundSelection
+                ? localStorage.soundSelection
+                : "MPP Classic";
+            this.addPack({
+                name: "MPP Classic",
+                keys: Object.keys(this.piano.keys),
+                ext: ".mp3",
+                url: "/sounds/mppclassic/"
+            });
+        }
+        addPack(pack, load) {
+            var self = this;
+            self.loading[pack.url || pack] = true;
+            function add(obj) {
+                var added = false;
+                for (var i = 0; self.packs.length > i; i++) {
+                    if (obj.name == self.packs[i].name) {
+                        added = true;
+                        break;
+                    }
+                }
 
-    SoundSelector.prototype.addPack = function (pack, load) {
-        var self = this;
-        self.loading[pack.url || pack] = true;
-        function add(obj) {
-            var added = false;
-            for (var i = 0; self.packs.length > i; i++) {
-                if (obj.name == self.packs[i].name) {
-                    added = true;
+                if (added) return console.warn("Sounds already added!!"); //no adding soundpacks twice D:<
+
+                if (obj.url.substr(obj.url.length - 1) != "/")
+                    obj.url = obj.url + "/";
+                var html = document.createElement("li");
+                html.classList = "pack";
+                html.innerText = obj.name + " (" + obj.keys.length + " keys)";
+                html.onclick = function () {
+                    self.loadPack(obj.name);
+                    self.notification.close();
+                };
+                obj.html = html;
+                self.packs.push(obj);
+                self.packs.sort(function (a, b) {
+                    if (a.name < b.name) return -1;
+                    if (a.name > b.name) return 1;
+                    return 0;
+                });
+                if (load) self.loadPack(obj.name);
+                delete self.loading[obj.url];
+            }
+
+            if (typeof pack == "string") {
+                $.getJSON(pack + "/info.json").done(function (json) {
+                    json.url = pack;
+                    add(json);
+                });
+            } else add(pack); //validate packs??
+        }
+        addPacks(packs) {
+            for (var i = 0; packs.length > i; i++) this.addPack(packs[i]);
+        }
+        init() {
+            var self = this;
+            if (self.initialized)
+                return console.warn("Sound selector already initialized!");
+
+            if (!!Object.keys(self.loading).length)
+                return setTimeout(function () {
+                    self.init();
+                }, 250);
+
+            $("#sound-btn").on("click", function () {
+                if (
+                    document.getElementById("Notification-Sound-Selector") !=
+                    null
+                )
+                    return self.notification.close();
+                var html = document.createElement("ul");
+                //$(html).append("<p>Current Sound: " + self.soundSelection + "</p>");
+                for (var i = 0; self.packs.length > i; i++) {
+                    var pack = self.packs[i];
+                    if (pack.name == self.soundSelection)
+                        pack.html.classList = "pack enabled";
+                    else pack.html.classList = "pack";
+                    html.appendChild(pack.html);
+                }
+
+                self.notification = new Notification({
+                    title: "Sound Selector",
+                    html: html,
+                    id: "Sound-Selector",
+                    duration: -1,
+                    target: "#sound-btn"
+                });
+            });
+            self.initialized = true;
+            self.loadPack(self.soundSelection, true);
+        }
+        loadPack(pack, f) {
+            for (var i = 0; this.packs.length > i; i++) {
+                var p = this.packs[i];
+                if (p.name == pack) {
+                    pack = p;
                     break;
                 }
             }
-
-            if (added) return console.warn("Sounds already added!!"); //no adding soundpacks twice D:<
-
-            if (obj.url.substr(obj.url.length - 1) != "/")
-                obj.url = obj.url + "/";
-            var html = document.createElement("li");
-            html.classList = "pack";
-            html.innerText = obj.name + " (" + obj.keys.length + " keys)";
-            html.onclick = function () {
-                self.loadPack(obj.name);
-                self.notification.close();
-            };
-            obj.html = html;
-            self.packs.push(obj);
-            self.packs.sort(function (a, b) {
-                if (a.name < b.name) return -1;
-                if (a.name > b.name) return 1;
-                return 0;
-            });
-            if (load) self.loadPack(obj.name);
-            delete self.loading[obj.url];
-        }
-
-        if (typeof pack == "string") {
-            $.getJSON(pack + "/info.json").done(function (json) {
-                json.url = pack;
-                add(json);
-            });
-        } else add(pack); //validate packs??
-    };
-
-    SoundSelector.prototype.addPacks = function (packs) {
-        for (var i = 0; packs.length > i; i++) this.addPack(packs[i]);
-    };
-
-    SoundSelector.prototype.init = function () {
-        var self = this;
-        if (self.initialized)
-            return console.warn("Sound selector already initialized!");
-
-        if (!!Object.keys(self.loading).length)
-            return setTimeout(function () {
-                self.init();
-            }, 250);
-
-        $("#sound-btn").on("click", function () {
-            if (document.getElementById("Notification-Sound-Selector") != null)
-                return self.notification.close();
-            var html = document.createElement("ul");
-            //$(html).append("<p>Current Sound: " + self.soundSelection + "</p>");
-
-            for (var i = 0; self.packs.length > i; i++) {
-                var pack = self.packs[i];
-                if (pack.name == self.soundSelection)
-                    pack.html.classList = "pack enabled";
-                else pack.html.classList = "pack";
-                html.appendChild(pack.html);
-            }
-
-            self.notification = new Notification({
-                title: "Sound Selector",
-                html: html,
-                id: "Sound-Selector",
-                duration: -1,
-                target: "#sound-btn"
-            });
-        });
-        self.initialized = true;
-        self.loadPack(self.soundSelection, true);
-    };
-
-    SoundSelector.prototype.loadPack = function (pack, f) {
-        for (var i = 0; this.packs.length > i; i++) {
-            var p = this.packs[i];
-            if (p.name == pack) {
-                pack = p;
-                break;
-            }
-        }
-        if (typeof pack == "string") {
-            console.warn("Sound pack does not exist! Loading default pack...");
-            return this.loadPack("MPP Classic");
-        }
-
-        if (pack.name == this.soundSelection && !f) return;
-        if (pack.keys.length != Object.keys(this.piano.keys).length) {
-            this.piano.keys = {};
-            for (var i = 0; pack.keys.length > i; i++)
-                this.piano.keys[pack.keys[i]] = this.keys[pack.keys[i]];
-            this.piano.renderer.resize();
-        }
-
-        var self = this;
-        for (var i in this.piano.keys) {
-            if (!this.piano.keys.hasOwnProperty(i)) continue;
-            (function () {
-                var key = self.piano.keys[i];
-                key.loaded = false;
-                self.piano.audio.load(
-                    key.note,
-                    pack.url + key.note + pack.ext,
-                    function () {
-                        key.loaded = true;
-                        key.timeLoaded = Date.now();
-                    }
+            if (typeof pack == "string") {
+                console.warn(
+                    "Sound pack does not exist! Loading default pack..."
                 );
-            })();
-        }
-        if (localStorage) localStorage.soundSelection = pack.name;
-        this.soundSelection = pack.name;
-    };
-
-    SoundSelector.prototype.removePack = function (name) {
-        var found = false;
-        for (var i = 0; this.packs.length > i; i++) {
-            var pack = this.packs[i];
-            if (pack.name == name) {
-                this.packs.splice(i, 1);
-                if (pack.name == this.soundSelection)
-                    this.loadPack(this.packs[0].name); //add mpp default if none?
-                break;
+                return this.loadPack("MPP Classic");
             }
+
+            if (pack.name == this.soundSelection && !f) return;
+            if (pack.keys.length != Object.keys(this.piano.keys).length) {
+                this.piano.keys = {};
+                for (var i = 0; pack.keys.length > i; i++)
+                    this.piano.keys[pack.keys[i]] = this.keys[pack.keys[i]];
+                this.piano.renderer.resize();
+            }
+
+            var self = this;
+            for (var i in this.piano.keys) {
+                if (!this.piano.keys.hasOwnProperty(i)) continue;
+                (function () {
+                    var key = self.piano.keys[i];
+                    key.loaded = false;
+                    self.piano.audio.load(
+                        key.note,
+                        pack.url + key.note + pack.ext,
+                        function () {
+                            key.loaded = true;
+                            key.timeLoaded = Date.now();
+                        }
+                    );
+                })();
+            }
+            if (localStorage) localStorage.soundSelection = pack.name;
+            this.soundSelection = pack.name;
         }
-        if (!found) console.warn("Sound pack not found!");
-    };
+        removePack(name) {
+            var found = false;
+            for (var i = 0; this.packs.length > i; i++) {
+                var pack = this.packs[i];
+                if (pack.name == name) {
+                    this.packs.splice(i, 1);
+                    if (pack.name == this.soundSelection)
+                        this.loadPack(this.packs[0].name); //add mpp default if none?
+                    break;
+                }
+            }
+            if (!found) console.warn("Sound pack not found!");
+        }
+    }
 
     // Pianoctor
 
     ////////////////////////////////////////////////////////////////
 
-    var PianoKey = function (note, octave) {
-        this.note = note + octave;
-        this.baseNote = note;
-        this.octave = octave;
-        this.sharp = note.indexOf("s") != -1;
-        this.loaded = false;
-        this.timeLoaded = 0;
-        this.domElement = null;
-        this.timePlayed = 0;
-        this.blips = [];
-    };
-
-    var Piano = function (rootElement) {
-        var piano = this;
-        piano.rootElement = rootElement;
-        piano.keys = {};
-
-        var white_spatial = 0;
-        var black_spatial = 0;
-        var black_it = 0;
-        var black_lut = [2, 1, 2, 1, 1];
-        var addKey = function (note, octave) {
-            var key = new PianoKey(note, octave);
-            piano.keys[key.note] = key;
-            if (key.sharp) {
-                key.spatial = black_spatial;
-                black_spatial += black_lut[black_it % 5];
-                ++black_it;
-            } else {
-                key.spatial = white_spatial;
-                ++white_spatial;
-            }
-        };
-        if (test_mode) {
-            addKey("c", 2);
-        } else {
-            addKey("a", -1);
-            addKey("as", -1);
-            addKey("b", -1);
-            var notes = "c cs d ds e f fs g gs a as b".split(" ");
-            for (var oct = 0; oct < 7; oct++) {
-                for (var i in notes) {
-                    addKey(notes[i], oct);
-                }
-            }
-            addKey("c", 7);
+    class PianoKey {
+        constructor(note, octave) {
+            this.note = note + octave;
+            this.baseNote = note;
+            this.octave = octave;
+            this.sharp = note.indexOf("s") != -1;
+            this.loaded = false;
+            this.timeLoaded = 0;
+            this.domElement = null;
+            this.timePlayed = 0;
+            this.blips = [];
         }
+    }
 
-        this.renderer = new CanvasRenderer().init(this);
+    class Piano {
+        constructor(rootElement) {
+            var piano = this;
+            piano.rootElement = rootElement;
+            piano.keys = {};
 
-        window.addEventListener("resize", function () {
-            piano.renderer.resize();
-        });
-
-        window.AudioContext =
-            window.AudioContext || window.webkitAudioContext || undefined;
-        var audio_engine = AudioEngineWeb;
-        this.audio = new audio_engine().init();
-    };
-
-    Piano.prototype.play = function (note, vol, participant, delay_ms, lyric) {
-        if (!this.keys.hasOwnProperty(note) || !participant) return;
-        var key = this.keys[note];
-        if (key.loaded)
-            this.audio.play(key.note, vol, delay_ms, participant.id);
-        if (gMidiOutTest) gMidiOutTest(key.note, vol * 100, delay_ms);
-        var self = this;
-        setTimeout(function () {
-            self.renderer.visualize(key, participant.color);
-            if (lyric) {
+            var white_spatial = 0;
+            var black_spatial = 0;
+            var black_it = 0;
+            var black_lut = [2, 1, 2, 1, 1];
+            var addKey = function (note, octave) {
+                var key = new PianoKey(note, octave);
+                piano.keys[key.note] = key;
+                if (key.sharp) {
+                    key.spatial = black_spatial;
+                    black_spatial += black_lut[black_it % 5];
+                    ++black_it;
+                } else {
+                    key.spatial = white_spatial;
+                    ++white_spatial;
+                }
+            };
+            if (test_mode) {
+                addKey("c", 2);
+            } else {
+                addKey("a", -1);
+                addKey("as", -1);
+                addKey("b", -1);
+                var notes = "c cs d ds e f fs g gs a as b".split(" ");
+                for (var oct = 0; oct < 7; oct++) {
+                    for (var i in notes) {
+                        addKey(notes[i], oct);
+                    }
+                }
+                addKey("c", 7);
             }
-            var jq_namediv = $(participant.nameDiv);
-            jq_namediv.addClass("play");
-            setTimeout(function () {
-                jq_namediv.removeClass("play");
-            }, 30);
-        }, delay_ms || 0);
-    };
 
-    Piano.prototype.stop = function (note, participant, delay_ms) {
-        if (!this.keys.hasOwnProperty(note)) return;
-        var key = this.keys[note];
-        if (key.loaded) this.audio.stop(key.note, delay_ms, participant.id);
-        if (gMidiOutTest) gMidiOutTest(key.note, 0, delay_ms);
-    };
+            this.renderer = new CanvasRenderer().init(this);
+
+            window.addEventListener("resize", function () {
+                piano.renderer.resize();
+            });
+
+            window.AudioContext =
+                window.AudioContext || window.webkitAudioContext || undefined;
+            var audio_engine = AudioEngineWeb;
+            this.audio = new audio_engine().init();
+        }
+        play(note, vol, participant, delay_ms, lyric) {
+            if (!this.keys.hasOwnProperty(note) || !participant) return;
+            var key = this.keys[note];
+            if (key.loaded)
+                this.audio.play(key.note, vol, delay_ms, participant.id);
+            if (gMidiOutTest) gMidiOutTest(key.note, vol * 100, delay_ms);
+            var self = this;
+            setTimeout(function () {
+                self.renderer.visualize(key, participant.color);
+                if (lyric) {
+                }
+                var jq_namediv = $(participant.nameDiv);
+                jq_namediv.addClass("play");
+                setTimeout(function () {
+                    jq_namediv.removeClass("play");
+                }, 30);
+            }, delay_ms || 0);
+        }
+        stop(note, participant, delay_ms) {
+            if (!this.keys.hasOwnProperty(note)) return;
+            var key = this.keys[note];
+            if (key.loaded) this.audio.stop(key.note, delay_ms, participant.id);
+            if (gMidiOutTest) gMidiOutTest(key.note, 0, delay_ms);
+        }
+    }
 
     var gPiano = new Piano(document.getElementById("piano"));
 
@@ -1651,10 +1685,12 @@ $(function () {
         $("#volume-label").text("Volume: " + Math.floor(v * 100) + "%");
     });
 
-    var Note = function (note, octave) {
-        this.note = note;
-        this.octave = octave || 0;
-    };
+    class Note {
+        constructor(note, octave) {
+            this.note = note;
+            this.octave = octave || 0;
+        }
+    }
 
     var n = function (a, b) {
         return { note: new Note(a, b), held: false };
@@ -2032,87 +2068,87 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
-    var Notification = function (par) {
-        if (this instanceof Notification === false) throw "yeet";
-        EventEmitter.call(this);
+    class Notification {
+        constructor(par) {
+            if (this instanceof Notification === false) throw "yeet";
+            EventEmitter.call(this);
 
-        var par = par || {};
+            var par = par || {};
 
-        this.id = "Notification-" + (par.id || Math.random());
-        this.title = par.title || "";
-        this.text = par.text || "";
-        this.html = par.html || "";
-        this.target = $(par.target || "#piano");
-        this.duration = par.duration || 30000;
-        this["class"] = par["class"] || "classic";
+            this.id = "Notification-" + (par.id || Math.random());
+            this.title = par.title || "";
+            this.text = par.text || "";
+            this.html = par.html || "";
+            this.target = $(par.target || "#piano");
+            this.duration = par.duration || 30000;
+            this["class"] = par["class"] || "classic";
 
-        var self = this;
-        var eles = $("#" + this.id);
-        if (eles.length > 0) {
-            eles.remove();
-        }
-        this.domElement = $(
-            '<div class="notification" style="display: none;"><div class="notification-body"><div class="title"></div>' +
-                '<div class="text"></div></div><div class="x">Ⓧ</div></div>'
-        );
-        this.domElement[0].id = this.id;
-        this.domElement.addClass(this["class"]);
-        this.domElement.find(".title").text(this.title);
-        if (this.text.length > 0) {
-            this.domElement.find(".text").text(this.text);
-        } else if (this.html instanceof HTMLElement) {
-            this.domElement.find(".text")[0].appendChild(this.html);
-        } else if (this.html.length > 0) {
-            this.domElement.find(".text").html(this.html);
-        }
-        document.body.appendChild(this.domElement.get(0));
+            var self = this;
+            var eles = $("#" + this.id);
+            if (eles.length > 0) {
+                eles.remove();
+            }
+            this.domElement = $(
+                '<div class="notification" style="display: none;"><div class="notification-body"><div class="title"></div>' +
+                    '<div class="text"></div></div><div class="x">Ⓧ</div></div>'
+            );
+            this.domElement[0].id = this.id;
+            this.domElement.addClass(this["class"]);
+            this.domElement.find(".title").text(this.title);
+            if (this.text.length > 0) {
+                this.domElement.find(".text").text(this.text);
+            } else if (this.html instanceof HTMLElement) {
+                this.domElement.find(".text")[0].appendChild(this.html);
+            } else if (this.html.length > 0) {
+                this.domElement.find(".text").html(this.html);
+            }
+            document.body.appendChild(this.domElement.get(0));
 
-        this.position();
-        this.onresize = function () {
-            self.position();
-        };
-        window.addEventListener("resize", this.onresize);
+            this.position();
+            this.onresize = function () {
+                self.position();
+            };
+            window.addEventListener("resize", this.onresize);
 
-        this.domElement.find(".x").click(function () {
-            self.close();
-        });
-
-        $(this.domElement).fadeIn(100);
-
-        if (this.duration > 0) {
-            setTimeout(function () {
+            this.domElement.find(".x").click(function () {
                 self.close();
-            }, this.duration);
-        }
+            });
 
-        return this;
-    };
+            $(this.domElement).fadeIn(100);
+
+            if (this.duration > 0) {
+                setTimeout(function () {
+                    self.close();
+                }, this.duration);
+            }
+
+            return this;
+        }
+        position() {
+            var pos = this.target.offset();
+            var x =
+                pos.left -
+                this.domElement.width() / 2 +
+                this.target.width() / 4;
+            var y = pos.top - this.domElement.height() - 8;
+            var width = this.domElement.width();
+            if (x + width > $("body").width()) {
+                x -= x + width - $("body").width();
+            }
+            if (x < 0) x = 0;
+            this.domElement.offset({ left: x, top: y });
+        }
+        close() {
+            var self = this;
+            window.removeEventListener("resize", this.onresize);
+            this.domElement.fadeOut(250, function () {
+                self.domElement.remove();
+                self.emit("close");
+            });
+        }
+    }
 
     mixin(Notification.prototype, EventEmitter.prototype);
-    Notification.prototype.constructor = Notification;
-
-    Notification.prototype.position = function () {
-        var pos = this.target.offset();
-        var x =
-            pos.left - this.domElement.width() / 2 + this.target.width() / 4;
-        var y = pos.top - this.domElement.height() - 8;
-        var width = this.domElement.width();
-        if (x + width > $("body").width()) {
-            x -= x + width - $("body").width();
-        }
-        if (x < 0) x = 0;
-        this.domElement.offset({ left: x, top: y });
-    };
-
-    Notification.prototype.close = function () {
-        var self = this;
-        window.removeEventListener("resize", this.onresize);
-        this.domElement.fadeOut(250, function () {
-            self.domElement.remove();
-            self.emit("close");
-        });
-    };
-
     // set variables from settings or set settings
 
     ////////////////////////////////////////////////////////////////
@@ -2625,26 +2661,30 @@ $(function () {
             MIDI_KEY_NAMES.push(bare_notes[i] + oct);
         }
     }
+
     MIDI_KEY_NAMES.push("c7");
 
-    var devices_json = "[]";
+    let devices_json = "[]";
+
     function sendDevices() {
         gClient.sendArray([{ m: "devices", list: JSON.parse(devices_json) }]);
     }
+
     gClient.on("connect", sendDevices);
 
     (function () {
         if (navigator.requestMIDIAccess) {
             navigator.requestMIDIAccess().then(
                 function (midi) {
-                    console.log(midi);
+                    // console.log(midi);
                     function midimessagehandler(evt) {
                         if (!evt.target.enabled) return;
                         //console.log(evt);
-                        var channel = evt.data[0] & 0xf;
-                        var cmd = evt.data[0] >> 4;
-                        var note_number = evt.data[1];
-                        var vel = evt.data[2];
+                        const channel = evt.data[0] & 0xf;
+                        const cmd = evt.data[0] >> 4;
+                        const note_number = evt.data[1];
+                        const vel = evt.data[2];
+
                         //console.log(channel, cmd, note_number, vel);
                         if (cmd == 8 || (cmd == 9 && vel == 0)) {
                             // NOTE_OFF
@@ -2690,18 +2730,21 @@ $(function () {
                     }
 
                     function updateDevices() {
-                        var list = [];
+                        const list = [];
+
                         if (midi.inputs.size > 0) {
-                            var inputs = midi.inputs.values();
+                            const inputs = midi.inputs.values();
+
                             for (
-                                var input_it = inputs.next();
+                                let input_it = inputs.next();
                                 input_it && !input_it.done;
                                 input_it = inputs.next()
                             ) {
-                                var input = input_it.value;
+                                const input = input_it.value;
                                 list.push(deviceInfo(input));
                             }
                         }
+
                         if (midi.outputs.size > 0) {
                             var outputs = midi.outputs.values();
                             for (
@@ -2713,7 +2756,9 @@ $(function () {
                                 list.push(deviceInfo(output));
                             }
                         }
-                        var new_json = JSON.stringify(list);
+
+                        const new_json = JSON.stringify(list);
+
                         if (new_json !== devices_json) {
                             devices_json = new_json;
                             sendDevices();
@@ -2965,110 +3010,6 @@ $(function () {
         }
     })();
 
-    // bug supply
-
-    ////////////////////////////////////////////////////////////////
-
-    // window.onerror = function (message, url, line) {
-    //     var url = url || "(no url)";
-    //     var line = line || "(no line)";
-    //     // errors in socket.io
-    //     if (url.indexOf("socket.io.js") !== -1) {
-    //         if (message.indexOf("INVALID_STATE_ERR") !== -1) return;
-    //         if (message.indexOf("InvalidStateError") !== -1) return;
-    //         if (message.indexOf("DOM Exception 11") !== -1) return;
-    //         if (
-    //             message.indexOf(
-    //                 "Property 'open' of object #<c> is not a function"
-    //             ) !== -1
-    //         )
-    //             return;
-    //         if (
-    //             message.indexOf("Cannot call method 'close' of undefined") !==
-    //             -1
-    //         )
-    //             return;
-    //         if (message.indexOf("Cannot call method 'close' of null") !== -1)
-    //             return;
-    //         if (message.indexOf("Cannot call method 'onClose' of null") !== -1)
-    //             return;
-    //         if (message.indexOf("Cannot call method 'payload' of null") !== -1)
-    //             return;
-    //         if (
-    //             message.indexOf(
-    //                 "Unable to get value of the property 'close'"
-    //             ) !== -1
-    //         )
-    //             return;
-    //         if (message.indexOf("NS_ERROR_NOT_CONNECTED") !== -1) return;
-    //         if (
-    //             message.indexOf(
-    //                 "Unable to get property 'close' of undefined or null reference"
-    //             ) !== -1
-    //         )
-    //             return;
-    //         if (
-    //             message.indexOf(
-    //                 "Unable to get value of the property 'close': object is null or undefined"
-    //             ) !== -1
-    //         )
-    //             return;
-    //         if (message.indexOf("this.transport is null") !== -1) return;
-    //     }
-    //     // errors in soundmanager2
-    //     if (url.indexOf("soundmanager2.js") !== -1) {
-    //         // operation disabled in safe mode?
-    //         if (
-    //             message.indexOf(
-    //                 "Could not complete the operation due to error c00d36ef"
-    //             ) !== -1
-    //         )
-    //             return;
-    //         if (message.indexOf("_s.o._setVolume is not a function") !== -1)
-    //             return;
-    //     }
-    //     // errors in midibridge
-    //     if (url.indexOf("midibridge") !== -1) {
-    //         if (message.indexOf("Error calling method on NPObject") !== -1)
-    //             return;
-    //     }
-    //     // too many failing extensions injected in my html
-    //     if (url.indexOf(".js") !== url.length - 3) return;
-    //     // extensions inject cross-domain embeds too
-    //     if (url.toLowerCase().indexOf("multiplayerpiano.com") == -1) return;
-
-    //     // errors in my code
-    //     if (url.indexOf("script.js") !== -1) {
-    //         if (
-    //             message.indexOf("Object [object Object] has no method 'on'") !==
-    //             -1
-    //         )
-    //             return;
-    //         if (
-    //             message.indexOf(
-    //                 "Object [object Object] has no method 'off'"
-    //             ) !== -1
-    //         )
-    //             return;
-    //         if (
-    //             message.indexOf(
-    //                 "Property '$' of object [object Object] is not a function"
-    //             ) !== -1
-    //         )
-    //             return;
-    //     }
-
-    //     var enc =
-    //         "/bugreport/" +
-    //         (message ? encodeURIComponent(message) : "") +
-    //         "/" +
-    //         (url ? encodeURIComponent(url) : "") +
-    //         "/" +
-    //         (line ? encodeURIComponent(line) : "");
-    //     var img = new Image();
-    //     img.src = enc;
-    // };
-
     // more button
     (function () {
         var loaded = false;
@@ -3212,31 +3153,32 @@ $(function () {
     var osc1_sustain = 0.5;
     var osc1_release = 2.0;
 
-    function synthVoice(note_name, time) {
-        var note_number = MIDI_KEY_NAMES.indexOf(note_name);
-        note_number = note_number + 9 - MIDI_TRANSPOSE;
-        var freq = Math.pow(2, (note_number - 69) / 12) * 440.0;
-        this.osc = context.createOscillator();
-        this.osc.type = osc1_type;
-        this.osc.frequency.value = freq;
-        this.gain = context.createGain();
-        this.gain.gain.value = 0;
-        this.osc.connect(this.gain);
-        this.gain.connect(synth_gain);
-        this.osc.start(time);
-        this.gain.gain.setValueAtTime(0, time);
-        this.gain.gain.linearRampToValueAtTime(1, time + osc1_attack);
-        this.gain.gain.linearRampToValueAtTime(
-            osc1_sustain,
-            time + osc1_attack + osc1_decay
-        );
+    class synthVoice {
+        constructor(note_name, time) {
+            var note_number = MIDI_KEY_NAMES.indexOf(note_name);
+            note_number = note_number + 9 - MIDI_TRANSPOSE;
+            var freq = Math.pow(2, (note_number - 69) / 12) * 440.0;
+            this.osc = context.createOscillator();
+            this.osc.type = osc1_type;
+            this.osc.frequency.value = freq;
+            this.gain = context.createGain();
+            this.gain.gain.value = 0;
+            this.osc.connect(this.gain);
+            this.gain.connect(synth_gain);
+            this.osc.start(time);
+            this.gain.gain.setValueAtTime(0, time);
+            this.gain.gain.linearRampToValueAtTime(1, time + osc1_attack);
+            this.gain.gain.linearRampToValueAtTime(
+                osc1_sustain,
+                time + osc1_attack + osc1_decay
+            );
+        }
+        stop(time) {
+            //this.gain.gain.setValueAtTime(osc1_sustain, time);
+            this.gain.gain.linearRampToValueAtTime(0, time + osc1_release);
+            this.osc.stop(time + osc1_release);
+        }
     }
-
-    synthVoice.prototype.stop = function (time) {
-        //this.gain.gain.setValueAtTime(osc1_sustain, time);
-        this.gain.gain.linearRampToValueAtTime(0, time + osc1_release);
-        this.osc.stop(time + osc1_release);
-    };
 
     (function () {
         var button = document.getElementById("synth-btn");
