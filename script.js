@@ -1,6 +1,6 @@
 // 钢琴
 
-$(function () {
+$(() => {
     const test_mode =
         window.location.hash &&
         window.location.hash.match(/^(?:#.+)*#test(?:#.+)*$/i);
@@ -32,6 +32,10 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
+    /**
+     * 2D rectangle shape for bounds checking
+     * @author Brandon Lockaby
+     */
     class Rect {
         constructor(x, y, w, h) {
             this.x = x;
@@ -51,7 +55,7 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
-    const Translation = (function () {
+    const Translation = (() => {
         const strings = {
             "people are playing": {
                 pt: "pessoas estão jogando",
@@ -126,11 +130,11 @@ $(function () {
             // todo: Connecting, Offline mode, input placeholder, Notifications
         };
 
-        const setLanguage = function (lang) {
+        const setLanguage = lang => {
             language = lang;
         };
 
-        const getLanguage = function () {
+        const getLanguage = () => {
             if (
                 window.navigator &&
                 navigator.language &&
@@ -142,7 +146,7 @@ $(function () {
             }
         };
 
-        const get = function (text, lang) {
+        const get = (text, lang) => {
             if (typeof lang === "undefined") lang = language;
             const row = strings[text];
             if (row == undefined) return text;
@@ -151,10 +155,12 @@ $(function () {
             return string;
         };
 
-        const perform = function (lang) {
+        const perform = lang => {
             if (typeof lang === "undefined") lang = language;
-            $(".translate").each(function (i, ele) {
+
+            $(".translate").each((i, ele) => {
                 const th = $(this);
+
                 if (ele.tagName && ele.tagName.toLowerCase() == "input") {
                     if (typeof ele.placeholder != "undefined") {
                         th.attr(
@@ -184,6 +190,11 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
+    /**
+     * Abstract audio engine
+     * @abstract
+     * @author Brandon Lockaby
+     */
     class AudioEngine {
         constructor() {}
 
@@ -209,6 +220,11 @@ $(function () {
         }
     }
 
+    /**
+     * WebAudio engine
+     * @author Brandon Lockaby
+     * @extends AudioEngine
+     */
     class AudioEngineWeb extends AudioEngine {
         constructor() {
             super();
@@ -218,7 +234,7 @@ $(function () {
 
             const self = this;
 
-            this.worker.onmessage = function (event) {
+            this.worker.onmessage = event => {
                 if (event.data.args)
                     if (event.data.args.action == 0) {
                         self.actualPlay(
@@ -273,16 +289,13 @@ $(function () {
             const req = new XMLHttpRequest();
             req.open("GET", url);
             req.responseType = "arraybuffer";
-            req.addEventListener("readystatechange", function (evt) {
+            req.addEventListener("readystatechange", evt => {
                 if (req.readyState !== 4) return;
                 try {
-                    audio.context.decodeAudioData(
-                        req.response,
-                        function (buffer) {
-                            audio.sounds[id] = buffer;
-                            if (cb) cb();
-                        }
-                    );
+                    audio.context.decodeAudioData(req.response, buffer => {
+                        audio.sounds[id] = buffer;
+                        if (cb) cb();
+                    });
                 } catch (e) {
                     /*throw new Error(e.message
                         + " / id: " + id
@@ -423,15 +436,29 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
+    /**
+     * Base abstract rendering class
+     * @author Brandon Lockaby
+     */
     class Renderer {
         constructor() {}
 
+        /**
+         * Initialize the renderer
+         * @param {Piano} piano Piano object
+         * @returns {Renderer}
+         */
         init(piano) {
             this.piano = piano;
             this.resize();
             return this;
         }
 
+        /**
+         * Change the internal width and height of the renderer
+         * @param {number} width Width of the piano
+         * @param {number} height Height of the piano
+         */
         resize(width, height) {
             if (typeof width == "undefined")
                 width = $(this.piano.rootElement).width();
@@ -448,19 +475,39 @@ $(function () {
             this.height = height * window.devicePixelRatio;
         }
 
+        /**
+         * Visualize a note being played
+         * @abstract
+         * @param {PianoKey} key Key object
+         * @param {string} color Hex color of the note
+         */
         visualize(key, color) {}
     }
 
+    /**
+     * Piano canvas rendering class
+     * @extends Renderer
+     * @author Brandon Lockaby
+     */
     class CanvasRenderer extends Renderer {
         constructor() {
             super();
         }
 
+        /**
+         * Check whether this renderer is supported in this environment
+         * @returns {boolean}
+         */
         static isSupported() {
             const canvas = document.createElement("canvas");
             return !!(canvas.getContext && canvas.getContext("2d"));
         }
 
+        /**
+         * Get the true cursor click position based on the offset of this renderer on the page
+         * @param {MouseEvent} evt Browser mouse event
+         * @returns {{x: number; y: number}} Translated mouse vector
+         */
         static translateMouseEvent(evt) {
             let element = evt.target;
             let offx = 0;
@@ -479,6 +526,11 @@ $(function () {
             };
         }
 
+        /**
+         * Initialize this renderer
+         * @param {Piano} piano Piano object
+         * @returns {CanvasRenderer}
+         */
         init(piano) {
             this.canvas = document.createElement("canvas");
             this.ctx = this.canvas.getContext("2d");
@@ -488,7 +540,7 @@ $(function () {
 
             // create render loop
             const self = this;
-            const render = function () {
+            const render = () => {
                 self.redraw();
                 requestAnimationFrame(render);
             };
@@ -499,7 +551,7 @@ $(function () {
             let mouse_down = false;
             let last_key = null;
 
-            $(piano.rootElement).mousedown(function (event) {
+            $(piano.rootElement).mousedown(event => {
                 mouse_down = true;
                 //event.stopPropagation();
                 event.preventDefault();
@@ -515,7 +567,7 @@ $(function () {
 
             piano.rootElement.addEventListener(
                 "touchstart",
-                function (event) {
+                event => {
                     mouse_down = true;
                     //event.stopPropagation();
                     event.preventDefault();
@@ -535,31 +587,44 @@ $(function () {
                 false
             );
 
-            $(window).mouseup(function (event) {
+            $(window).mouseup(event => {
                 if (last_key) {
                     release(last_key.note);
                 }
+
                 mouse_down = false;
                 last_key = null;
             });
 
-            /*$(piano.rootElement).mousemove(function(event) {
-                if(!mouse_down) return;
-                var pos = CanvasRenderer.translateMouseEvent(event);
-                var hit = self.getHit(pos.x, pos.y);
-                if(hit && hit.key != last_key) {
+            /*
+            $(piano.rootElement).mousemove(event => {
+                if (!mouse_down) return;
+
+                const pos = CanvasRenderer.translateMouseEvent(event);
+                const hit = self.getHit(pos.x, pos.y);
+
+                if (hit && hit.key != last_key) {
                     press(hit.key.note, hit.v);
                     last_key = hit.key;
                 }
-            });*/
+            });
+            */
+
             return this;
         }
 
+        /**
+         * Resize this renderer
+         * @param {number} width New width
+         * @param {number} height New height
+         */
         resize(width, height) {
-            Renderer.prototype.resize.call(this, width, height);
+            super.resize(width, height);
+
             if (this.width < 52 * 2) this.width = 52 * 2;
             if (this.height < this.width * 0.2)
                 this.height = Math.floor(this.width * 0.2);
+
             this.canvas.width = this.width;
             this.canvas.height = this.height;
             this.canvas.style.width =
@@ -576,21 +641,27 @@ $(function () {
             this.blackKeyOffset = Math.floor(
                 this.whiteKeyWidth - this.blackKeyWidth / 2
             );
+
             this.keyMovement = Math.floor(this.whiteKeyHeight * 0.015);
 
             this.whiteBlipWidth = Math.floor(this.whiteKeyWidth * 0.7);
             this.whiteBlipHeight = Math.floor(this.whiteBlipWidth * 0.8);
+
             this.whiteBlipX = Math.floor(
                 (this.whiteKeyWidth - this.whiteBlipWidth) / 2
             );
+
             this.whiteBlipY = Math.floor(
                 this.whiteKeyHeight - this.whiteBlipHeight * 1.2
             );
+
             this.blackBlipWidth = Math.floor(this.blackKeyWidth * 0.7);
             this.blackBlipHeight = Math.floor(this.blackBlipWidth * 0.8);
+
             this.blackBlipY = Math.floor(
                 this.blackKeyHeight - this.blackBlipHeight * 1.2
             );
+
             this.blackBlipX = Math.floor(
                 (this.blackKeyWidth - this.blackBlipWidth) / 2
             );
@@ -599,32 +670,36 @@ $(function () {
             this.whiteKeyRender = document.createElement("canvas");
             this.whiteKeyRender.width = this.whiteKeyWidth;
             this.whiteKeyRender.height = this.height + 10;
-            var ctx = this.whiteKeyRender.getContext("2d");
-            if (ctx.createLinearGradient) {
-                var gradient = ctx.createLinearGradient(
-                    0,
-                    0,
-                    0,
-                    this.whiteKeyHeight
-                );
-                gradient.addColorStop(0, "#eee");
-                gradient.addColorStop(0.75, "#fff");
-                gradient.addColorStop(1, "#dad4d4");
-                ctx.fillStyle = gradient;
-            } else {
-                ctx.fillStyle = "#fff";
-            }
+
+            let ctx = this.whiteKeyRender.getContext("2d");
+            let gradient = ctx.createLinearGradient(
+                0,
+                0,
+                0,
+                this.whiteKeyHeight
+            );
+
+            gradient.addColorStop(0, "#eee");
+            gradient.addColorStop(0.75, "#fff");
+            gradient.addColorStop(1, "#dad4d4");
+
+            ctx.fillStyle = gradient;
+
             ctx.strokeStyle = "#000";
             ctx.lineJoin = "round";
             ctx.lineCap = "round";
+
             ctx.lineWidth = 10;
+
             ctx.strokeRect(
                 ctx.lineWidth / 2,
                 ctx.lineWidth / 2,
                 this.whiteKeyWidth - ctx.lineWidth,
                 this.whiteKeyHeight - ctx.lineWidth
             );
+
             ctx.lineWidth = 4;
+
             ctx.fillRect(
                 ctx.lineWidth / 2,
                 ctx.lineWidth / 2,
@@ -636,31 +711,30 @@ $(function () {
             this.blackKeyRender = document.createElement("canvas");
             this.blackKeyRender.width = this.blackKeyWidth + 10;
             this.blackKeyRender.height = this.blackKeyHeight + 10;
-            var ctx = this.blackKeyRender.getContext("2d");
-            if (ctx.createLinearGradient) {
-                var gradient = ctx.createLinearGradient(
-                    0,
-                    0,
-                    0,
-                    this.blackKeyHeight
-                );
-                gradient.addColorStop(0, "#000");
-                gradient.addColorStop(1, "#444");
-                ctx.fillStyle = gradient;
-            } else {
-                ctx.fillStyle = "#000";
-            }
+
+            ctx = this.blackKeyRender.getContext("2d");
+
+            gradient = ctx.createLinearGradient(0, 0, 0, this.blackKeyHeight);
+
+            gradient.addColorStop(0, "#000");
+            gradient.addColorStop(1, "#444");
+
+            ctx.fillStyle = gradient;
+
             ctx.strokeStyle = "#222";
             ctx.lineJoin = "round";
             ctx.lineCap = "round";
             ctx.lineWidth = 8;
+
             ctx.strokeRect(
                 ctx.lineWidth / 2,
                 ctx.lineWidth / 2,
                 this.blackKeyWidth - ctx.lineWidth,
                 this.blackKeyHeight - ctx.lineWidth
             );
+
             ctx.lineWidth = 4;
+
             ctx.fillRect(
                 ctx.lineWidth / 2,
                 ctx.lineWidth / 2,
@@ -670,29 +744,41 @@ $(function () {
 
             // prerender shadows
             this.shadowRender = [];
-            var y = -this.canvas.height * 2;
-            for (var j = 0; j < 2; j++) {
-                var canvas = document.createElement("canvas");
+
+            const y = -this.canvas.height * 2;
+
+            for (let j = 0; j < 2; j++) {
+                const canvas = document.createElement("canvas");
+
                 this.shadowRender[j] = canvas;
+
                 canvas.width = this.canvas.width;
                 canvas.height = this.canvas.height;
-                var ctx = canvas.getContext("2d");
-                var sharp = j ? true : false;
+
+                ctx = canvas.getContext("2d");
+
+                const sharp = j ? true : false;
+
                 ctx.lineJoin = "round";
                 ctx.lineCap = "round";
                 ctx.lineWidth = 1;
+
                 ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
                 ctx.shadowBlur = this.keyMovement * 3;
                 ctx.shadowOffsetY = -y + this.keyMovement;
+
                 if (sharp) {
                     ctx.shadowOffsetX = this.keyMovement;
                 } else {
                     ctx.shadowOffsetX = 0;
                     ctx.shadowOffsetY = -y + this.keyMovement;
                 }
-                for (var i in this.piano.keys) {
+
+                for (let i in this.piano.keys) {
                     if (!this.piano.keys.hasOwnProperty(i)) continue;
-                    var key = this.piano.keys[i];
+
+                    const key = this.piano.keys[i];
+
                     if (key.sharp != sharp) continue;
 
                     if (key.sharp) {
@@ -717,9 +803,11 @@ $(function () {
             }
 
             // update key rects
-            for (var i in this.piano.keys) {
+            for (let i in this.piano.keys) {
                 if (!this.piano.keys.hasOwnProperty(i)) continue;
-                var key = this.piano.keys[i];
+
+                let key = this.piano.keys[i];
+
                 if (key.sharp) {
                     key.rect = new Rect(
                         this.blackKeyOffset + this.whiteKeyWidth * key.spatial,
@@ -738,27 +826,36 @@ $(function () {
             }
         }
 
+        /**
+         * Visualize a note being played
+         * @param {PianoKey} key Key object
+         * @param {string} color Hex color
+         */
         visualize(key, color) {
             key.timePlayed = Date.now();
             key.blips.push({ time: key.timePlayed, color: color });
         }
 
+        /**
+         * Redraw the entire canvas
+         */
         redraw() {
-            var now = Date.now();
-            var timeLoadedEnd = now - 1000;
-            var timePlayedEnd = now - 100;
-            var timeBlipEnd = now - 1000;
+            const now = Date.now();
+            const timeLoadedEnd = now - 1000;
+            const timePlayedEnd = now - 100;
+            const timeBlipEnd = now - 1000;
 
             this.ctx.save();
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
             // draw all keys
-            for (var j = 0; j < 2; j++) {
+            for (let j = 0; j < 2; j++) {
                 this.ctx.globalAlpha = 1.0;
                 this.ctx.drawImage(this.shadowRender[j], 0, 0);
-                var sharp = j ? true : false;
-                for (var i in this.piano.keys) {
-                    if (!this.piano.keys.hasOwnProperty(i)) continue;
-                    var key = this.piano.keys[i];
+
+                const sharp = j ? true : false;
+
+                for (const key of Object.values(this.piano.keys)) {
                     if (key.sharp != sharp) continue;
 
                     if (!key.loaded) {
@@ -769,7 +866,9 @@ $(function () {
                     } else {
                         this.ctx.globalAlpha = 1.0;
                     }
-                    var y = 0;
+
+                    let y = 0;
+
                     if (key.timePlayed > timePlayedEnd) {
                         y = Math.floor(
                             this.keyMovement -
@@ -777,21 +876,25 @@ $(function () {
                                     this.keyMovement
                         );
                     }
-                    var x = Math.floor(
+
+                    let x = Math.floor(
                         key.sharp
                             ? this.blackKeyOffset +
                                   this.whiteKeyWidth * key.spatial
                             : this.whiteKeyWidth * key.spatial
                     );
-                    var image = key.sharp
+
+                    const image = key.sharp
                         ? this.blackKeyRender
                         : this.whiteKeyRender;
+
                     this.ctx.drawImage(image, x, y);
 
                     // render blips
                     if (key.blips.length) {
-                        var alpha = this.ctx.globalAlpha;
-                        var w, h;
+                        const alpha = this.ctx.globalAlpha;
+                        let w, h;
+
                         if (key.sharp) {
                             x += this.blackBlipX;
                             y = this.blackBlipY;
@@ -803,8 +906,10 @@ $(function () {
                             w = this.whiteBlipWidth;
                             h = this.whiteBlipHeight;
                         }
-                        for (var b = 0; b < key.blips.length; b++) {
-                            var blip = key.blips[b];
+
+                        for (let b = 0; b < key.blips.length; b++) {
+                            const blip = key.blips[b];
+
                             if (blip.time > timeBlipEnd) {
                                 this.ctx.fillStyle = blip.color;
                                 this.ctx.globalAlpha =
@@ -814,48 +919,61 @@ $(function () {
                                 key.blips.splice(b, 1);
                                 --b;
                             }
+
                             y -= Math.floor(h * 1.1);
                         }
                     }
                 }
             }
+
             this.ctx.restore();
         }
 
+        /**
+         * Render a lyrical note (unused/unfinished)
+         * @author Brandon Lockaby
+         */
         renderNoteLyrics() {
             // render lyric
-            for (var part_id in this.noteLyrics) {
+            for (let part_id in this.noteLyrics) {
                 if (!this.noteLyrics.hasOwnProperty(i)) continue;
-                var lyric = this.noteLyrics[part_id];
-                var lyric_x = x;
-                var lyric_y = this.whiteKeyHeight + 1;
+
+                let lyric = this.noteLyrics[part_id];
+                let lyric_x = x;
+                let lyric_y = this.whiteKeyHeight + 1;
+
                 this.ctx.fillStyle = key.lyric.color;
-                var alpha = this.ctx.globalAlpha;
+
+                let alpha = this.ctx.globalAlpha;
+
                 this.ctx.globalAlpha = alpha - (now - key.lyric.time) / 1000;
                 this.ctx.fillRect(x, y, 10, 10);
             }
         }
 
         getHit(x, y) {
-            for (var j = 0; j < 2; j++) {
-                var sharp = j ? false : true; // black keys first
-                for (var i in this.piano.keys) {
-                    if (!this.piano.keys.hasOwnProperty(i)) continue;
-                    var key = this.piano.keys[i];
+            for (let j = 0; j < 2; j++) {
+                const sharp = j ? false : true; // black keys first
+
+                for (const key of Object.values(this.piano.keys)) {
                     if (key.sharp != sharp) continue;
+
                     if (key.rect.contains(x, y)) {
-                        var v =
+                        let v =
                             y /
                             (key.sharp
                                 ? this.blackKeyHeight
                                 : this.whiteKeyHeight);
+
                         v += 0.25;
                         v *= DEFAULT_VELOCITY;
+
                         if (v > 1.0) v = 1.0;
                         return { key: key, v: v };
                     }
                 }
             }
+
             return null;
         }
     }
@@ -864,7 +982,14 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
+    /**
+     * Soundpack selector
+     * @author electrashave
+     */
     class SoundSelector {
+        /**
+         * @param {Piano} piano Piano object
+         */
         constructor(piano) {
             this.initialized = false;
             this.keys = piano.keys;
@@ -872,9 +997,11 @@ $(function () {
             this.notification;
             this.packs = [];
             this.piano = piano;
+
             this.soundSelection = localStorage.soundSelection
                 ? localStorage.soundSelection
                 : "MPP Classic";
+
             this.addPack({
                 name: "MPP Classic",
                 keys: Object.keys(this.piano.keys),
@@ -882,13 +1009,20 @@ $(function () {
                 url: "/sounds/mppclassic/"
             });
         }
+
+        /**
+         * Add a pack to the soundpack list
+         * @param {Soundpack} pack Soundpack to add
+         * @param {boolean} load Whether to load pack immediately
+         */
         addPack(pack, load) {
-            var self = this;
-            self.loading[pack.url || pack] = true;
-            function add(obj) {
-                var added = false;
-                for (var i = 0; self.packs.length > i; i++) {
-                    if (obj.name == self.packs[i].name) {
+            this.loading[pack.url || pack] = true;
+
+            const add = pack => {
+                let added = false;
+
+                for (let i = 0; this.packs.length > i; i++) {
+                    if (pack.name === this.packs[i].name) {
                         added = true;
                         break;
                     }
@@ -896,63 +1030,81 @@ $(function () {
 
                 if (added) return console.warn("Sounds already added!!"); //no adding soundpacks twice D:<
 
-                if (obj.url.substr(obj.url.length - 1) != "/")
-                    obj.url = obj.url + "/";
-                var html = document.createElement("li");
+                if (pack.url.substr(pack.url.length - 1) !== "/")
+                    pack.url = pack.url + "/";
+
+                const html = document.createElement("li");
+
                 html.classList = "pack";
-                html.innerText = obj.name + " (" + obj.keys.length + " keys)";
-                html.onclick = function () {
-                    self.loadPack(obj.name);
-                    self.notification.close();
+                html.innerText = pack.name + " (" + pack.keys.length + " keys)";
+
+                html.onclick = () => {
+                    this.loadPack(pack.name);
+                    this.notification.close();
                 };
-                obj.html = html;
-                self.packs.push(obj);
-                self.packs.sort(function (a, b) {
+
+                pack.html = html;
+
+                this.packs.push(pack);
+
+                this.packs.sort((a, b) => {
                     if (a.name < b.name) return -1;
                     if (a.name > b.name) return 1;
                     return 0;
                 });
-                if (load) self.loadPack(obj.name);
-                delete self.loading[obj.url];
-            }
+
+                if (load) this.loadPack(pack.name);
+
+                delete this.loading[pack.url];
+            };
 
             if (typeof pack == "string") {
-                $.getJSON(pack + "/info.json").done(function (json) {
+                $.getJSON(pack + "/info.json").done(json => {
                     json.url = pack;
                     add(json);
                 });
             } else add(pack); //validate packs??
         }
+
+        /**
+         * Add multiple soundpacks
+         * @param {Soundpack[]} packs Array of soundpacks
+         */
         addPacks(packs) {
-            for (var i = 0; packs.length > i; i++) this.addPack(packs[i]);
+            for (let i = 0; packs.length > i; i++) this.addPack(packs[i]);
         }
+
+        /**
+         * Initialize this soundpack selector
+         * @returns {SoundSelector}
+         */
         init() {
-            var self = this;
-            if (self.initialized)
+            if (this.initialized)
                 return console.warn("Sound selector already initialized!");
 
-            if (!!Object.keys(self.loading).length)
-                return setTimeout(function () {
-                    self.init();
+            if (!!Object.keys(this.loading).length)
+                return setTimeout(() => {
+                    this.init();
                 }, 250);
 
-            $("#sound-btn").on("click", function () {
+            $("#sound-btn").on("click", () => {
                 if (
-                    document.getElementById("Notification-Sound-Selector") !=
+                    document.getElementById("Notification-Sound-Selector") !==
                     null
                 )
-                    return self.notification.close();
-                var html = document.createElement("ul");
+                    return this.notification.close();
+
+                const html = document.createElement("ul");
                 //$(html).append("<p>Current Sound: " + self.soundSelection + "</p>");
-                for (var i = 0; self.packs.length > i; i++) {
-                    var pack = self.packs[i];
-                    if (pack.name == self.soundSelection)
+
+                for (const pack of this.packs) {
+                    if (pack.name == this.soundSelection)
                         pack.html.classList = "pack enabled";
                     else pack.html.classList = "pack";
                     html.appendChild(pack.html);
                 }
 
-                self.notification = new Notification({
+                this.notification = new Notification({
                     title: "Sound Selector",
                     html: html,
                     id: "Sound-Selector",
@@ -960,55 +1112,68 @@ $(function () {
                     target: "#sound-btn"
                 });
             });
-            self.initialized = true;
-            self.loadPack(self.soundSelection, true);
+
+            this.initialized = true;
+            this.loadPack(this.soundSelection, true);
         }
+
+        /**
+         * Load a soundpack
+         * @param {Soundpack|string} pack Load a soundpack
+         * @param {boolean} f force(?)
+         * @returns
+         */
         loadPack(pack, f) {
-            for (var i = 0; this.packs.length > i; i++) {
-                var p = this.packs[i];
-                if (p.name == pack) {
-                    pack = p;
-                    break;
-                }
-            }
-            if (typeof pack == "string") {
+            pack = this.packs.find(p => p.name === pack);
+
+            if (typeof pack === "string") {
                 console.warn(
                     "Sound pack does not exist! Loading default pack..."
                 );
+
                 return this.loadPack("MPP Classic");
             }
 
-            if (pack.name == this.soundSelection && !f) return;
-            if (pack.keys.length != Object.keys(this.piano.keys).length) {
+            if (pack.name === this.soundSelection && !f) return;
+            if (pack.keys.length !== Object.keys(this.piano.keys).length) {
                 this.piano.keys = {};
-                for (var i = 0; pack.keys.length > i; i++)
+
+                for (let i = 0; pack.keys.length > i; i++)
                     this.piano.keys[pack.keys[i]] = this.keys[pack.keys[i]];
+
                 this.piano.renderer.resize();
             }
 
-            var self = this;
-            for (var i in this.piano.keys) {
-                if (!this.piano.keys.hasOwnProperty(i)) continue;
-                (function () {
-                    var key = self.piano.keys[i];
+            for (const key of Object.values(this.piano.keys)) {
+                (() => {
                     key.loaded = false;
-                    self.piano.audio.load(
+
+                    this.piano.audio.load(
                         key.note,
                         pack.url + key.note + pack.ext,
-                        function () {
+                        () => {
                             key.loaded = true;
                             key.timeLoaded = Date.now();
                         }
                     );
                 })();
             }
+
             if (localStorage) localStorage.soundSelection = pack.name;
+
             this.soundSelection = pack.name;
         }
+
+        /**
+         * Remove a soundpack
+         * @param {string} name Name of soundpack
+         */
         removePack(name) {
-            var found = false;
-            for (var i = 0; this.packs.length > i; i++) {
-                var pack = this.packs[i];
+            let found = false;
+
+            for (let i = 0; this.packs.length > i; i++) {
+                const pack = this.packs[i];
+
                 if (pack.name == name) {
                     this.packs.splice(i, 1);
                     if (pack.name == this.soundSelection)
@@ -1016,6 +1181,7 @@ $(function () {
                     break;
                 }
             }
+
             if (!found) console.warn("Sound pack not found!");
         }
     }
@@ -1024,6 +1190,10 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
+    /**
+     * Piano key data
+     * @author Brandon Lockaby
+     */
     class PianoKey {
         constructor(note, octave) {
             this.note = note + octave;
@@ -1038,19 +1208,25 @@ $(function () {
         }
     }
 
+    /**
+     * Main piano class
+     * @author Brandon Lockaby
+     */
     class Piano {
         constructor(rootElement) {
-            var piano = this;
-            piano.rootElement = rootElement;
-            piano.keys = {};
+            this.rootElement = rootElement;
+            this.keys = {};
 
-            var white_spatial = 0;
-            var black_spatial = 0;
-            var black_it = 0;
-            var black_lut = [2, 1, 2, 1, 1];
-            var addKey = function (note, octave) {
-                var key = new PianoKey(note, octave);
-                piano.keys[key.note] = key;
+            let white_spatial = 0;
+            let black_spatial = 0;
+            let black_it = 0;
+            let black_lut = [2, 1, 2, 1, 1];
+
+            const addKey = (note, octave) => {
+                let key = new PianoKey(note, octave);
+
+                this.keys[key.note] = key;
+
                 if (key.sharp) {
                     key.spatial = black_spatial;
                     black_spatial += black_lut[black_it % 5];
@@ -1060,61 +1236,91 @@ $(function () {
                     ++white_spatial;
                 }
             };
+
             if (test_mode) {
                 addKey("c", 2);
             } else {
                 addKey("a", -1);
                 addKey("as", -1);
                 addKey("b", -1);
-                var notes = "c cs d ds e f fs g gs a as b".split(" ");
-                for (var oct = 0; oct < 7; oct++) {
-                    for (var i in notes) {
-                        addKey(notes[i], oct);
+
+                const notes = "c cs d ds e f fs g gs a as b".split(" ");
+
+                for (let oct = 0; oct < 7; oct++) {
+                    for (const note of notes) {
+                        addKey(note, oct);
                     }
                 }
+
                 addKey("c", 7);
             }
 
             this.renderer = new CanvasRenderer().init(this);
 
-            window.addEventListener("resize", function () {
-                piano.renderer.resize();
+            window.addEventListener("resize", () => {
+                this.renderer.resize();
             });
 
             window.AudioContext =
                 window.AudioContext || window.webkitAudioContext || undefined;
-            var audio_engine = AudioEngineWeb;
+
+            const audio_engine = AudioEngineWeb;
             this.audio = new audio_engine().init();
         }
+
+        /**
+         * Play a note on the piano
+         * @param {string} note Note name
+         * @param {number} vol Volume of note
+         * @param {*} participant Participant that played the note
+         * @param {*} delay_ms Note time offset
+         * @param {*} lyric Unused
+         */
         play(note, vol, participant, delay_ms, lyric) {
             if (!this.keys.hasOwnProperty(note) || !participant) return;
-            var key = this.keys[note];
+
+            const key = this.keys[note];
+
             if (key.loaded)
                 this.audio.play(key.note, vol, delay_ms, participant.id);
+
             if (gMidiOutTest) gMidiOutTest(key.note, vol * 100, delay_ms);
-            var self = this;
-            setTimeout(function () {
-                self.renderer.visualize(key, participant.color);
+
+            setTimeout(() => {
+                this.renderer.visualize(key, participant.color);
+
                 if (lyric) {
                 }
-                var jq_namediv = $(participant.nameDiv);
+
+                const jq_namediv = $(participant.nameDiv);
+
                 jq_namediv.addClass("play");
-                setTimeout(function () {
+
+                setTimeout(() => {
                     jq_namediv.removeClass("play");
                 }, 30);
             }, delay_ms || 0);
         }
+
+        /**
+         * Stop playing a note on the piano
+         * @param {string} note Note name
+         * @param {*} participant Participant that played the stop note
+         * @param {*} delay_ms Note time offset
+         */
         stop(note, participant, delay_ms) {
             if (!this.keys.hasOwnProperty(note)) return;
-            var key = this.keys[note];
+
+            let key = this.keys[note];
+
             if (key.loaded) this.audio.stop(key.note, delay_ms, participant.id);
             if (gMidiOutTest) gMidiOutTest(key.note, 0, delay_ms);
         }
     }
 
-    var gPiano = new Piano(document.getElementById("piano"));
+    const gPiano = new Piano(document.getElementById("piano"));
+    const gSoundSelector = new SoundSelector(gPiano);
 
-    var gSoundSelector = new SoundSelector(gPiano);
     gSoundSelector.addPacks([
         "/sounds/Emotional_2.0/",
         "/sounds/Harp/",
@@ -1124,15 +1330,21 @@ $(function () {
         "/sounds/Emotional/",
         "/sounds/Untitled/"
     ]);
+
     gSoundSelector.init();
 
-    var gAutoSustain = false;
-    var gSustain = false;
+    let gAutoSustain = false;
+    let gSustain = false;
 
-    var gHeldNotes = {};
-    var gSustainedNotes = {};
+    const gHeldNotes = {};
+    const gSustainedNotes = {};
 
-    function press(id, vol) {
+    /**
+     * Play a note on the piano (and propagate to the server)
+     * @param {string} id Note name
+     * @param {number} vol Volume of note
+     */
+    const press = (id, vol) => {
         if (!gClient.preventsPlaying() && gNoteQuota.spend(1)) {
             gHeldNotes[id] = true;
             gSustainedNotes[id] = true;
@@ -1144,9 +1356,13 @@ $(function () {
             );
             gClient.startNote(id, vol);
         }
-    }
+    };
 
-    function release(id) {
+    /**
+     * Stop playing a note on the piano (and propagate to the server)
+     * @param {string} id Note name
+     */
+    const release = id => {
         if (gHeldNotes[id]) {
             gHeldNotes[id] = false;
             if ((gAutoSustain || gSustain) && !enableSynth) {
@@ -1159,22 +1375,30 @@ $(function () {
                 }
             }
         }
-    }
+    };
 
-    function pressSustain() {
+    /**
+     * Enable sustain
+     */
+    const pressSustain = () => {
         gSustain = true;
-    }
+    };
 
-    function releaseSustain() {
+    /**
+     * Disable sustain
+     */
+    const releaseSustain = () => {
         gSustain = false;
+
         if (!gAutoSustain) {
-            for (var id in gSustainedNotes) {
+            for (let id in gSustainedNotes) {
                 if (
                     gSustainedNotes.hasOwnProperty(id) &&
                     gSustainedNotes[id] &&
                     !gHeldNotes[id]
                 ) {
                     gSustainedNotes[id] = false;
+
                     if (gNoteQuota.spend(1)) {
                         gPiano.stop(id, gClient.getOwnParticipant(), 0);
                         gClient.stopNote(id);
@@ -1182,15 +1406,16 @@ $(function () {
                 }
             }
         }
-    }
+    };
 
     // internet science
 
     ////////////////////////////////////////////////////////////////
 
-    var channel_id = decodeURIComponent(window.location.pathname);
-    if (channel_id.substr(0, 1) == "/") channel_id = channel_id.substr(1);
-    if (channel_id == "") channel_id = "lobby";
+    let channel_id = decodeURIComponent(window.location.pathname);
+    if (channel_id.substring(0, 1) === "/")
+        channel_id = channel_id.substring(1);
+    if (channel_id === "") channel_id = "lobby";
 
     const isSecure = globalThis.location.protocol == "https:";
     const port = window.location.hostname.includes("multiplayerpiano.dev")
@@ -1202,306 +1427,355 @@ $(function () {
 
     let enableTokens = true;
     let enableChallenge = true;
+
     if (configs.usersConfig.tokenAuth == "none") enableTokens = false;
     if (configs.usersConfig.browserChallenge == "none") enableChallenge = false;
 
     gClient.setChannel(channel_id);
     gClient.start(enableTokens, enableChallenge);
 
-    gClient.on("disconnect", function (evt) {
+    gClient.on("disconnect", evt => {
         console.log(evt);
     });
 
     // Setting status
-    (function () {
-        gClient.on("status", function (status) {
-            $("#status").text(status);
-        });
-        gClient.on("count", function (count) {
-            if (count > 0) {
-                $("#status").html(
-                    '<span class="number">' +
-                        count +
-                        "</span> " +
-                        (count == 1 ? "person is" : "people are") +
-                        " playing"
-                );
-                document.title = "Piano (" + count + ")";
-            } else {
-                document.title = "Multiplayer Piano";
-            }
-        });
-    })();
+    gClient.on("status", status => {
+        $("#status").text(status);
+    });
+
+    gClient.on("count", count => {
+        if (count > 0) {
+            $("#status").html(
+                '<span class="number">' +
+                    count +
+                    "</span> " +
+                    (count == 1 ? "person is" : "people are") +
+                    " playing"
+            );
+
+            document.title = "Piano (" + count + ")";
+        } else {
+            document.title = "Multiplayer Piano";
+        }
+    });
 
     // Handle changes to participants
-    (function () {
-        gClient.on("participant added", function (part) {
-            part.displayX = 150;
-            part.displayY = 50;
+    gClient.on("participant added", part => {
+        part.displayX = 150;
+        part.displayY = 50;
 
-            // add nameDiv
-            var div = document.createElement("div");
-            div.className = "name";
-            div.participantId = part.id;
-            div.textContent = part.name || "";
-            div.style.backgroundColor = part.color || "#777";
-            if (gClient.participantId === part.id) {
-                $(div).addClass("me");
+        // add nameDiv
+        let div = document.createElement("div");
+
+        div.className = "name";
+        div.participantId = part.id;
+        div.textContent = part.name || "";
+        div.style.backgroundColor = part.color || "#777";
+
+        if (gClient.participantId === part.id) {
+            $(div).addClass("me");
+        }
+
+        if (
+            gClient.channel &&
+            gClient.channel.crown &&
+            gClient.channel.crown.participantId === part.id
+        ) {
+            $(div).addClass("owner");
+        }
+
+        if (gPianoMutes.indexOf(part._id) !== -1) {
+            $(part.nameDiv).addClass("muted-notes");
+        }
+
+        if (gChatMutes.indexOf(part._id) !== -1) {
+            $(part.nameDiv).addClass("muted-chat");
+        }
+
+        div.style.display = "none";
+        part.nameDiv = $("#names")[0].appendChild(div);
+
+        $(part.nameDiv).fadeIn(2000);
+
+        if (part.tag) {
+            if (configs.usersConfig.enableTags) {
+                // console.log(part.tag);
+                const tag = document.createElement("div");
+
+                $(tag).addClass("nametag");
+                $(tag).text(part.tag.text);
+                $(tag).css("background", part.tag.color);
+
+                part.tagDiv = $(part.nameDiv).prepend(tag);
             }
+
+            if (part.tag.text === "ADMIN") {
+                $(part.nameDiv).addClass("admin");
+            }
+
+            if (part.tag.text === "OWNER") {
+                $(part.nameDiv).addClass("webmaster");
+            }
+
+            if (part.tag.text === "MOD" || part.tag.text === "MODERATOR") {
+                $(part.nameDiv).addClass("moderator");
+            }
+
             if (
-                gClient.channel &&
-                gClient.channel.crown &&
-                gClient.channel.crown.participantId === part.id
+                part.tag.text === "BOT" ||
+                part.tag.text === "ROBOT" ||
+                part.tag.text === "PROG" ||
+                part.tag.text === "PROGRAM" ||
+                part.tag.text === "🤖"
             ) {
-                $(div).addClass("owner");
-            }
-            if (gPianoMutes.indexOf(part._id) !== -1) {
-                $(part.nameDiv).addClass("muted-notes");
-            }
-            if (gChatMutes.indexOf(part._id) !== -1) {
-                $(part.nameDiv).addClass("muted-chat");
-            }
-            div.style.display = "none";
-            part.nameDiv = $("#names")[0].appendChild(div);
-            $(part.nameDiv).fadeIn(2000);
-
-            if (part.tag) {
-                if (configs.usersConfig.enableTags) {
-                    console.log(part.tag);
-                    const tag = document.createElement("div");
-                    $(tag).addClass("nametag");
-                    $(tag).text(part.tag.text);
-                    $(tag).css("background", part.tag.color);
-                    part.tagDiv = $(part.nameDiv).prepend(tag);
-                }
-
-                if (part.tag.text === "ADMIN") {
-                    $(part.nameDiv).addClass("admin");
-                }
-
-                if (part.tag.text === "OWNER") {
-                    $(part.nameDiv).addClass("webmaster");
-                }
-            }
-
-            // sort names
-            var arr = $("#names .name");
-            arr.sort(function (a, b) {
-                a = a.style.backgroundColor; // todo: sort based on user id instead
-                b = b.style.backgroundColor;
-                if (a > b) return 1;
-                else if (a < b) return -1;
-                else return 0;
-            });
-            $("#names").html(arr);
-
-            // add cursorDiv
-            if (gClient.participantId !== part.id || gSeeOwnCursor) {
-                var div = document.createElement("div");
-                div.className = "cursor";
-                div.style.display = "none";
-                part.cursorDiv = $("#cursors")[0].appendChild(div);
-                $(part.cursorDiv).fadeIn(2000);
-
-                var div = document.createElement("div");
-                div.className = "name";
-                div.style.backgroundColor = part.color || "#777";
-                div.textContent = part.name || "";
-                part.cursorDiv.appendChild(div);
-            } else {
-                part.cursorDiv = undefined;
-            }
-        });
-        gClient.on("participant removed", function (part) {
-            // remove nameDiv
-            var nd = $(part.nameDiv);
-            var cd = $(part.cursorDiv);
-            cd.fadeOut(2000);
-            nd.fadeOut(2000, function () {
-                nd.remove();
-                cd.remove();
-                part.nameDiv = undefined;
-                part.cursorDiv = undefined;
-            });
-        });
-        gClient.on("participant update", function (part) {
-            var name = part.name || "";
-            var color = part.color || "#777";
-            part.nameDiv.style.backgroundColor = color;
-            part.nameDiv.textContent = name;
-            $(part.cursorDiv)
-                .find(".name")
-                .text(name)
-                .css("background-color", color);
-            if (part.tag) {
-                if (configs.usersConfig.enableTags) {
-                    console.log(part.tag);
-                    const tag = document.createElement("div");
-                    $(tag).addClass("nametag");
-                    $(tag).text(part.tag.text);
-                    $(tag).css("background", part.tag.color);
-                    part.tagDiv = $(part.nameDiv).prepend(tag);
-                }
-
-                if (part.tag.text === "ADMIN") {
-                    $(part.nameDiv).addClass("admin");
-                }
-
-                if (part.tag.text === "OWNER") {
-                    $(part.nameDiv).addClass("webmaster");
-                }
-            }
-        });
-        gClient.on("ch", function (msg) {
-            for (var id in gClient.ppl) {
-                if (gClient.ppl.hasOwnProperty(id)) {
-                    var part = gClient.ppl[id];
-                    if (part.id === gClient.participantId) {
-                        $(part.nameDiv).addClass("me");
-                    } else {
-                        $(part.nameDiv).removeClass("me");
-                    }
-                    if (
-                        msg.ch.crown &&
-                        msg.ch.crown.participantId === part.id
-                    ) {
-                        $(part.nameDiv).addClass("owner");
-                        $(part.cursorDiv).addClass("owner");
-                    } else {
-                        $(part.nameDiv).removeClass("owner");
-                        $(part.cursorDiv).removeClass("owner");
-                    }
-                    if (gPianoMutes.indexOf(part._id) !== -1) {
-                        $(part.nameDiv).addClass("muted-notes");
-                    } else {
-                        $(part.nameDiv).removeClass("muted-notes");
-                    }
-                    if (gChatMutes.indexOf(part._id) !== -1) {
-                        $(part.nameDiv).addClass("muted-chat");
-                    } else {
-                        $(part.nameDiv).removeClass("muted-chat");
-                    }
-                }
-            }
-        });
-        function updateCursor(msg) {
-            const part = gClient.ppl[msg.id];
-            if (part && part.cursorDiv) {
-                part.cursorDiv.style.left = msg.x + "%";
-                part.cursorDiv.style.top = msg.y + "%";
+                $(part.nameDiv).addClass("bot");
             }
         }
-        gClient.on("m", updateCursor);
-        gClient.on("participant added", updateCursor);
-    })();
+
+        // sort names
+        const arr = $("#names .name");
+
+        arr.sort((a, b) => {
+            a = a.style.backgroundColor; // todo: sort based on user id instead
+            b = b.style.backgroundColor;
+            if (a > b) return 1;
+            else if (a < b) return -1;
+            else return 0;
+        });
+
+        $("#names").html(arr);
+
+        // add cursorDiv
+        if (gClient.participantId !== part.id || gSeeOwnCursor) {
+            let cursorDiv = document.createElement("div");
+
+            cursorDiv.className = "cursor";
+            cursorDiv.style.display = "none";
+            part.cursorDiv = $("#cursors")[0].appendChild(cursorDiv);
+
+            $(part.cursorDiv).fadeIn(2000);
+
+            let cursorNameDiv = document.createElement("div");
+
+            cursorNameDiv.className = "name";
+            cursorNameDiv.style.backgroundColor = part.color || "#777";
+            cursorNameDiv.textContent = part.name || "";
+
+            part.cursorDiv.appendChild(cursorNameDiv);
+        } else {
+            part.cursorDiv = undefined;
+        }
+    });
+
+    gClient.on("participant removed", part => {
+        // remove nameDiv
+        const nd = $(part.nameDiv);
+        const cd = $(part.cursorDiv);
+
+        cd.fadeOut(2000);
+
+        nd.fadeOut(2000, () => {
+            nd.remove();
+            cd.remove();
+            part.nameDiv = undefined;
+            part.cursorDiv = undefined;
+        });
+    });
+
+    gClient.on("participant update", part => {
+        const name = part.name || "";
+        const color = part.color || "#777";
+
+        part.nameDiv.style.backgroundColor = color;
+        part.nameDiv.textContent = name;
+
+        $(part.cursorDiv)
+            .find(".name")
+            .text(name)
+            .css("background-color", color);
+
+        if (part.tag) {
+            if (configs.usersConfig.enableTags) {
+                console.log(part.tag);
+                const tag = document.createElement("div");
+                $(tag).addClass("nametag");
+                $(tag).text(part.tag.text);
+                $(tag).css("background", part.tag.color);
+                part.tagDiv = $(part.nameDiv).prepend(tag);
+            }
+
+            if (part.tag.text === "ADMIN") {
+                $(part.nameDiv).addClass("admin");
+            }
+
+            if (part.tag.text === "OWNER") {
+                $(part.nameDiv).addClass("webmaster");
+            }
+        }
+    });
+
+    gClient.on("ch", msg => {
+        for (const part of Object.values(gClient.ppl)) {
+            if (part.id === gClient.participantId) {
+                $(part.nameDiv).addClass("me");
+            } else {
+                $(part.nameDiv).removeClass("me");
+            }
+
+            if (msg.ch.crown && msg.ch.crown.participantId === part.id) {
+                $(part.nameDiv).addClass("owner");
+                $(part.cursorDiv).addClass("owner");
+            } else {
+                $(part.nameDiv).removeClass("owner");
+                $(part.cursorDiv).removeClass("owner");
+            }
+
+            if (gPianoMutes.indexOf(part._id) !== -1) {
+                $(part.nameDiv).addClass("muted-notes");
+            } else {
+                $(part.nameDiv).removeClass("muted-notes");
+            }
+
+            if (gChatMutes.indexOf(part._id) !== -1) {
+                $(part.nameDiv).addClass("muted-chat");
+            } else {
+                $(part.nameDiv).removeClass("muted-chat");
+            }
+        }
+    });
+
+    const updateCursor = msg => {
+        const part = gClient.ppl[msg.id];
+
+        if (part && part.cursorDiv) {
+            part.cursorDiv.style.left = msg.x + "%";
+            part.cursorDiv.style.top = msg.y + "%";
+        }
+    };
+
+    gClient.on("m", updateCursor);
+    gClient.on("participant added", updateCursor);
 
     // Handle changes to crown
-    (function () {
-        var jqcrown = $('<div id="crown"></div>')
-            .appendTo(document.body)
-            .hide();
-        var jqcountdown = $("<span></span>").appendTo(jqcrown);
-        var countdown_interval;
-        jqcrown.click(function () {
-            gClient.sendArray([{ m: "chown", id: gClient.participantId }]);
-        });
-        gClient.on("ch", function (msg) {
-            if (msg.ch.crown) {
-                var crown = msg.ch.crown;
-                if (!crown.participantId || !gClient.ppl[crown.participantId]) {
-                    var land_time =
-                        crown.time + 2000 - gClient.serverTimeOffset;
-                    var avail_time =
-                        crown.time + 15000 - gClient.serverTimeOffset;
-                    jqcountdown.text("");
-                    jqcrown.show();
-                    if (land_time - Date.now() <= 0) {
-                        jqcrown.css({
+    const jqcrown = $('<div id="crown"></div>').appendTo(document.body).hide();
+
+    const jqcountdown = $("<span></span>").appendTo(jqcrown);
+    let countdown_interval;
+
+    jqcrown.click(() => {
+        gClient.sendArray([{ m: "chown", id: gClient.participantId }]);
+    });
+
+    gClient.on("ch", msg => {
+        if (msg.ch.crown) {
+            const crown = msg.ch.crown;
+            if (!crown.participantId || !gClient.ppl[crown.participantId]) {
+                const land_time = crown.time + 2000 - gClient.serverTimeOffset;
+                const avail_time =
+                    crown.time + 15000 - gClient.serverTimeOffset;
+
+                jqcountdown.text("");
+                jqcrown.show();
+
+                if (land_time - Date.now() <= 0) {
+                    jqcrown.css({
+                        left: crown.endPos.x + "%",
+                        top: crown.endPos.y + "%"
+                    });
+                } else {
+                    jqcrown.css({
+                        left: crown.startPos.x + "%",
+                        top: crown.startPos.y + "%"
+                    });
+
+                    jqcrown.addClass("spin");
+                    jqcrown.animate(
+                        {
                             left: crown.endPos.x + "%",
                             top: crown.endPos.y + "%"
-                        });
-                    } else {
-                        jqcrown.css({
-                            left: crown.startPos.x + "%",
-                            top: crown.startPos.y + "%"
-                        });
-                        jqcrown.addClass("spin");
-                        jqcrown.animate(
-                            {
-                                left: crown.endPos.x + "%",
-                                top: crown.endPos.y + "%"
-                            },
-                            2000,
-                            "linear",
-                            function () {
-                                jqcrown.removeClass("spin");
-                            }
-                        );
-                    }
-                    clearInterval(countdown_interval);
-                    countdown_interval = setInterval(function () {
-                        var time = Date.now();
-                        if (time >= land_time) {
-                            var ms = avail_time - time;
-                            if (ms > 0) {
-                                jqcountdown.text(Math.ceil(ms / 1000) + "s");
-                            } else {
-                                jqcountdown.text("");
-                                clearInterval(countdown_interval);
-                            }
+                        },
+                        2000,
+                        "linear",
+                        () => {
+                            jqcrown.removeClass("spin");
                         }
-                    }, 1000);
-                } else {
-                    jqcrown.hide();
+                    );
                 }
+
+                clearInterval(countdown_interval);
+
+                countdown_interval = setInterval(() => {
+                    let time = Date.now();
+
+                    if (time >= land_time) {
+                        let ms = avail_time - time;
+
+                        if (ms > 0) {
+                            jqcountdown.text(Math.ceil(ms / 1000) + "s");
+                        } else {
+                            jqcountdown.text("");
+                            clearInterval(countdown_interval);
+                        }
+                    }
+                }, 1000);
             } else {
                 jqcrown.hide();
             }
-        });
-        gClient.on("disconnect", function () {
-            jqcrown.fadeOut(2000);
-        });
-    })();
+        } else {
+            jqcrown.hide();
+        }
+    });
+
+    gClient.on("disconnect", () => {
+        jqcrown.fadeOut(2000);
+    });
 
     // Playing notes
-    gClient.on("n", function (msg) {
-        var t = msg.t - gClient.serverTimeOffset + TIMING_TARGET - Date.now();
-        var participant = gClient.findParticipantById(msg.p);
+    gClient.on("n", msg => {
+        const t = msg.t - gClient.serverTimeOffset + TIMING_TARGET - Date.now();
+        const participant = gClient.findParticipantById(msg.p);
+
         if (gPianoMutes.indexOf(participant._id) !== -1) return;
-        for (var i = 0; i < msg.n.length; i++) {
-            var note = msg.n[i];
-            var ms = t + (note.d || 0);
+
+        for (const note of msg.n) {
+            let ms = t + (note.d || 0);
+
             if (ms < 0) {
                 ms = 0;
             } else if (ms > 10000) continue;
+
             if (note.s) {
                 gPiano.stop(note.n, participant, ms);
             } else {
-                var vel =
+                let vel =
                     typeof note.v !== "undefined"
                         ? parseFloat(note.v)
                         : DEFAULT_VELOCITY;
+
                 if (!vel) vel = 0;
-                else if (vel < 0) vel = 0;
-                else if (vel > 1) vel = 1;
+                if (vel < 0) vel = 0;
+                if (vel > 1) vel = 1;
+
                 gPiano.play(note.n, vel, participant, ms);
-                if (enableSynth) {
-                    gPiano.stop(note.n, participant, ms + 1000);
-                }
+
+                if (enableSynth) gPiano.stop(note.n, participant, ms + 1000);
             }
         }
     });
 
     // Send cursor updates
-    var mx = 0,
+    let mx = 0,
         last_mx = -10,
         my = 0,
         last_my = -10;
-    setInterval(function () {
+
+    setInterval(() => {
         if (Math.abs(mx - last_mx) > 0.1 || Math.abs(my - last_my) > 0.1) {
             last_mx = mx;
             last_my = my;
+
             gClient.sendArray([{ m: "m", x: mx, y: my }]);
+
             if (gSeeOwnCursor) {
                 gClient.emit("m", {
                     m: "m",
@@ -1510,77 +1784,84 @@ $(function () {
                     y: my
                 });
             }
-            var part = gClient.getOwnParticipant();
+
+            const part = gClient.getOwnParticipant();
+
             if (part) {
                 part.x = mx;
                 part.y = my;
             }
         }
     }, 50);
-    $(document).mousemove(function (event) {
+
+    $(document).mousemove(event => {
         mx = ((event.pageX / $(window).width()) * 100).toFixed(2);
         my = ((event.pageY / $(window).height()) * 100).toFixed(2);
     });
 
     // Room settings button
-    (function () {
-        gClient.on("ch", function (msg) {
-            if (gClient.isOwner()) {
-                $("#room-settings-btn").show();
-            } else {
-                $("#room-settings-btn").hide();
-            }
-        });
-        $("#room-settings-btn").click(function (evt) {
-            if (gClient.channel && gClient.isOwner()) {
-                var settings = gClient.channel.settings;
-                openModal("#room-settings");
-                setTimeout(function () {
-                    $("#room-settings .checkbox[name=visible]").prop(
-                        "checked",
-                        settings.visible
-                    );
-                    $("#room-settings .checkbox[name=chat]").prop(
-                        "checked",
-                        settings.chat
-                    );
-                    $("#room-settings .checkbox[name=crownsolo]").prop(
-                        "checked",
-                        settings.crownsolo
-                    );
-                    $("#room-settings input[name=color]").val(settings.color);
-                }, 100);
-            }
-        });
-        $("#room-settings .submit").click(function () {
-            var settings = {
-                visible: $("#room-settings .checkbox[name=visible]").is(
-                    ":checked"
-                ),
-                chat: $("#room-settings .checkbox[name=chat]").is(":checked"),
-                crownsolo: $("#room-settings .checkbox[name=crownsolo]").is(
-                    ":checked"
-                ),
-                color: $("#room-settings input[name=color]").val()
-            };
-            gClient.setChannelSettings(settings);
-            closeModal();
-        });
-        $("#room-settings .drop-crown").click(function () {
-            closeModal();
-            if (confirm("This will drop the crown...!"))
-                gClient.sendArray([{ m: "chown" }]);
-        });
-    })();
+    gClient.on("ch", msg => {
+        if (gClient.isOwner()) {
+            $("#room-settings-btn").show();
+        } else {
+            $("#room-settings-btn").hide();
+        }
+    });
+
+    $("#room-settings-btn").click(evt => {
+        if (gClient.channel && gClient.isOwner()) {
+            const settings = gClient.channel.settings;
+
+            openModal("#room-settings");
+
+            setTimeout(() => {
+                $("#room-settings .checkbox[name=visible]").prop(
+                    "checked",
+                    settings.visible
+                );
+                $("#room-settings .checkbox[name=chat]").prop(
+                    "checked",
+                    settings.chat
+                );
+                $("#room-settings .checkbox[name=crownsolo]").prop(
+                    "checked",
+                    settings.crownsolo
+                );
+                $("#room-settings input[name=color]").val(settings.color);
+            }, 100);
+        }
+    });
+
+    $("#room-settings .submit").click(() => {
+        const settings = {
+            visible: $("#room-settings .checkbox[name=visible]").is(":checked"),
+            chat: $("#room-settings .checkbox[name=chat]").is(":checked"),
+            crownsolo: $("#room-settings .checkbox[name=crownsolo]").is(
+                ":checked"
+            ),
+            color: $("#room-settings input[name=color]").val()
+        };
+
+        gClient.setChannelSettings(settings);
+
+        closeModal();
+    });
+
+    $("#room-settings .drop-crown").click(() => {
+        closeModal();
+        if (confirm("This will drop the crown...!"))
+            gClient.sendArray([{ m: "chown" }]);
+    });
 
     // Handle notifications
-    gClient.on("notification", function (msg) {
+    gClient.on("notification", msg => {
         new Notification(msg);
     });
 
     // Don't foget spin
-    gClient.on("ch", function (msg) {
-        var chidlo = msg.ch._id.toLowerCase();
+    gClient.on("ch", msg => {
+        const chidlo = msg.ch._id.toLowerCase();
+
         if (chidlo === "spin" || chidlo.substr(-5) === "/spin") {
             $("#piano").addClass("spin");
         } else {
@@ -1588,98 +1869,109 @@ $(function () {
         }
     });
 
-    /*function eb() {
+    /*const eb = () => {
 		if(gClient.channel && gClient.channel._id.toLowerCase() === "test/fishing") {
 			ebsprite.start(gClient);
 		} else {
 			ebsprite.stop();
 		}
 	}
+
 	if(ebsprite) {
 		gClient.on("ch", eb);
 		eb();
 	}*/
 
     // Crownsolo notice
-    gClient.on("ch", function (msg) {
+    gClient.on("ch", msg => {
         let notice = "";
         let has_notice = false;
+
         if (msg.ch.settings.crownsolo) {
             has_notice = true;
             notice += '<p>This room is set to "only the owner can play."</p>';
         }
+
         if (msg.ch.settings["no cussing"]) {
             has_notice = true;
             notice += '<p>This room is set to "no cussing."</p>';
         }
+
         let notice_div = $("#room-notice");
+
         if (has_notice) {
             notice_div.html(notice);
+
             if (notice_div.is(":hidden")) notice_div.fadeIn(1000);
         } else {
             if (notice_div.is(":visible")) notice_div.fadeOut(1000);
         }
     });
-    gClient.on("disconnect", function () {
+
+    gClient.on("disconnect", () => {
         $("#room-notice").fadeOut(1000);
     });
 
     // Background color
-    (function () {
-        var old_color1 = new Color("#000000");
-        var old_color2 = new Color("#000000");
-        function setColor(hex, hex2) {
-            var color1 = new Color(hex);
-            var color2 = new Color(hex2 || hex);
-            if (!hex2) color2.add(-0x40, -0x40, -0x40);
+    let old_color1 = new Color("#000000");
+    let old_color2 = new Color("#000000");
 
-            var bottom = document.getElementById("bottom");
+    const setColor = (hex, hex2) => {
+        const color1 = new Color(hex);
+        const color2 = new Color(hex2 || hex);
 
-            document.body.style.setProperty("--color", color1.toHexa());
-            document.body.style.setProperty("--color2", color2.toHexa());
+        if (!hex2) color2.add(-0x40, -0x40, -0x40);
 
-            bottom.style.setProperty("--color", color1.toHexa());
-            bottom.style.setProperty("--color2", color2.toHexa());
-        }
+        const bottom = document.getElementById("bottom");
 
-        function setColorToDefault() {
-            let color = "#000000";
-            let color2 = "#000000";
+        document.body.style.setProperty("--color", color1.toHexa());
+        document.body.style.setProperty("--color2", color2.toHexa());
 
-            try {
-                color = configs.urlChannel.settings.color;
-                color2 = configs.urlChannel.settings.color2;
-            } catch (err) {}
-            setColor(color, color2);
-        }
+        bottom.style.setProperty("--color", color1.toHexa());
+        bottom.style.setProperty("--color2", color2.toHexa());
+    };
 
-        setColorToDefault();
+    const setColorToDefault = () => {
+        let color = "#000000";
+        let color2 = "#000000";
 
-        gClient.on("ch", function (ch) {
-            if (ch.ch.settings) {
-                if (ch.ch.settings.color) {
-                    setColor(ch.ch.settings.color, ch.ch.settings.color2);
-                } else {
-                    setColorToDefault();
-                }
+        try {
+            color = configs.urlChannel.settings.color;
+            color2 = configs.urlChannel.settings.color2;
+        } catch (err) {}
+        setColor(color, color2);
+    };
+
+    setColorToDefault();
+
+    gClient.on("ch", ch => {
+        if (ch.ch.settings) {
+            if (ch.ch.settings.color) {
+                setColor(ch.ch.settings.color, ch.ch.settings.color2);
+            } else {
+                setColorToDefault();
             }
-        });
-    })();
+        }
+    });
 
-    var gPianoMutes = (localStorage.pianoMutes ? localStorage.pianoMutes : "")
-        .split(",")
-        .filter(v => v);
-    var gChatMutes = (localStorage.pianoMutes ? localStorage.pianoMutes : "")
+    const gPianoMutes = (localStorage.pianoMutes ? localStorage.pianoMutes : "")
         .split(",")
         .filter(v => v);
 
-    var volume_slider = document.getElementById("volume-slider");
+    const gChatMutes = (localStorage.pianoMutes ? localStorage.pianoMutes : "")
+        .split(",")
+        .filter(v => v);
+
+    const volume_slider = document.getElementById("volume-slider");
+
     volume_slider.value = gPiano.audio.volume;
+
     $("#volume-label").text(
         "Volume: " + Math.floor(gPiano.audio.volume * 100) + "%"
     );
-    volume_slider.addEventListener("input", function (evt) {
-        var v = +volume_slider.value;
+
+    volume_slider.addEventListener("input", evt => {
+        let v = +volume_slider.value;
         gPiano.audio.setVolume(v);
         if (window.localStorage) localStorage.volume = v;
         $("#volume-label").text("Volume: " + Math.floor(v * 100) + "%");
@@ -1692,10 +1984,11 @@ $(function () {
         }
     }
 
-    var n = function (a, b) {
+    const n = (a, b) => {
         return { note: new Note(a, b), held: false };
     };
-    var key_binding = {
+
+    const key_binding = {
         65: n("gs"),
         90: n("a"),
         83: n("as"),
@@ -1740,28 +2033,33 @@ $(function () {
         221: n("e", 3)
     };
 
-    var capsLockKey = false;
+    let capsLockKey = false;
 
-    var transpose_octave = 0;
+    let transpose_octave = 0;
 
-    function handleKeyDown(evt) {
+    const handleKeyDown = evt => {
         //console.log(evt);
-        var code = parseInt(evt.keyCode);
+        const code = parseInt(evt.keyCode);
+
         if (key_binding[code] !== undefined) {
-            var binding = key_binding[code];
+            const binding = key_binding[code];
+
             if (!binding.held) {
                 binding.held = true;
 
-                var note = binding.note;
-                var octave = 1 + note.octave + transpose_octave;
+                let note = binding.note;
+                let octave = 1 + note.octave + transpose_octave;
+
                 if (evt.shiftKey) ++octave;
                 else if (capsLockKey || evt.ctrlKey) --octave;
+
                 note = note.note + octave;
-                var vol = velocityFromMouseY();
+
+                let vol = velocityFromMouseY();
                 press(note, vol);
             }
 
-            if (++gKeyboardSeq == 3) {
+            if (++gKeyboardSeq === 3) {
                 gKnowsYouCanUseKeyboard = true;
                 if (window.gKnowsYouCanUseKeyboardTimeout)
                     clearTimeout(gKnowsYouCanUseKeyboardTimeout);
@@ -1772,8 +2070,9 @@ $(function () {
 
             evt.preventDefault();
             evt.stopPropagation();
+
             return false;
-        } else if (code == 20) {
+        } else if (code === 20) {
             // Caps Lock
             capsLockKey = true;
             evt.preventDefault();
@@ -1793,17 +2092,19 @@ $(function () {
             gAutoSustain = !gAutoSustain;
             evt.preventDefault();
         }
-    }
+    };
 
-    function handleKeyUp(evt) {
-        var code = parseInt(evt.keyCode);
+    const handleKeyUp = evt => {
+        const code = parseInt(evt.keyCode);
+
         if (key_binding[code] !== undefined) {
-            var binding = key_binding[code];
+            const binding = key_binding[code];
+
             if (binding.held) {
                 binding.held = false;
 
-                var note = binding.note;
-                var octave = 1 + note.octave + transpose_octave;
+                let note = binding.note;
+                let octave = 1 + note.octave + transpose_octave;
                 if (evt.shiftKey) ++octave;
                 else if (capsLockKey || evt.ctrlKey) --octave;
                 note = note.note + octave;
@@ -1813,7 +2114,7 @@ $(function () {
             evt.preventDefault();
             evt.stopPropagation();
             return false;
-        } else if (code == 20) {
+        } else if (code === 20) {
             // Caps Lock
             capsLockKey = false;
             evt.preventDefault();
@@ -1822,53 +2123,62 @@ $(function () {
             releaseSustain();
             evt.preventDefault();
         }
-    }
+    };
 
-    function handleKeyPress(evt) {
+    const handleKeyPress = evt => {
         evt.preventDefault();
         evt.stopPropagation();
+
         if (evt.keyCode == 27 || evt.keyCode == 13) {
             //$("#chat input").focus();
         }
-        return false;
-    }
 
-    var recapListener = function (evt) {
+        return false;
+    };
+
+    const recapListener = evt => {
         captureKeyboard();
     };
 
-    function captureKeyboard() {
+    const captureKeyboard = () => {
         $("#piano").off("mousedown", recapListener);
         $("#piano").off("touchstart", recapListener);
+
         $(document).on("keydown", handleKeyDown);
         $(document).on("keyup", handleKeyUp);
-        $(window).on("keypress", handleKeyPress);
-    }
 
-    function releaseKeyboard() {
+        $(window).on("keypress", handleKeyPress);
+    };
+
+    const releaseKeyboard = () => {
         $(document).off("keydown", handleKeyDown);
         $(document).off("keyup", handleKeyUp);
+
         $(window).off("keypress", handleKeyPress);
+
         $("#piano").on("mousedown", recapListener);
         $("#piano").on("touchstart", recapListener);
-    }
+    };
 
     captureKeyboard();
 
-    var velocityFromMouseY = function () {
+    const velocityFromMouseY = () => {
         return 0.1 + (my / 100) * 0.6;
     };
 
     // NoteQuota
-    var gNoteQuota = (function () {
-        var last_rat = 0;
-        var nqjq = $("#quota .value");
-        setInterval(function () {
+    const gNoteQuota = (() => {
+        let last_rat = 0;
+        const nqjq = $("#quota .value");
+
+        setInterval(() => {
             gNoteQuota.tick();
         }, 2000);
-        return new NoteQuota(function (points) {
+
+        return new NoteQuota(points => {
             // update UI
-            var rat = (points / this.max) * 100;
+            const rat = (points / this.max) * 100;
+
             if (rat <= last_rat)
                 nqjq.stop(true, true).css("width", rat.toFixed(0) + "%");
             else
@@ -1880,200 +2190,250 @@ $(function () {
             last_rat = rat;
         });
     })();
-    gClient.on("nq", function (nq_params) {
+
+    gClient.on("nq", nq_params => {
         gNoteQuota.setParams(nq_params);
     });
-    gClient.on("disconnect", function () {
+
+    gClient.on("disconnect", () => {
         gNoteQuota.setParams(NoteQuota.PARAMS_OFFLINE);
     });
 
     // click participant names
-    (function () {
-        var ele = document.getElementById("names");
-        var touchhandler = function (e) {
-            var target_jq = $(e.target);
-            if (target_jq.hasClass("name")) {
-                target_jq.addClass("play");
-                if (e.target.participantId == gClient.participantId) {
-                    openModal("#rename", "input[name=name]");
-                    setTimeout(function () {
-                        $("#rename input[name=name]").val(
-                            gClient.ppl[gClient.participantId].name
-                        );
-                        $("#rename input[name=color]").val(
-                            gClient.ppl[gClient.participantId].color
-                        );
-                    }, 100);
-                } else if (e.target.participantId) {
-                    var id = e.target.participantId;
-                    var part = gClient.ppl[id] || null;
-                    if (part) {
-                        participantMenu(part);
-                        e.stopPropagation();
-                    }
+    const ele = document.getElementById("names");
+
+    const touchhandler = e => {
+        const target_jq = $(e.target);
+
+        if (target_jq.hasClass("name")) {
+            target_jq.addClass("play");
+
+            if (e.target.participantId == gClient.participantId) {
+                openModal("#rename", "input[name=name]");
+
+                setTimeout(() => {
+                    $("#rename input[name=name]").val(
+                        gClient.ppl[gClient.participantId].name
+                    );
+
+                    $("#rename input[name=color]").val(
+                        gClient.ppl[gClient.participantId].color
+                    );
+                }, 100);
+            } else if (e.target.participantId) {
+                const id = e.target.participantId;
+                const part = gClient.ppl[id] || null;
+
+                if (part) {
+                    participantMenu(part);
+                    e.stopPropagation();
                 }
             }
-        };
-        ele.addEventListener("mousedown", touchhandler);
-        ele.addEventListener("touchstart", touchhandler);
-        var releasehandler = function (e) {
-            $("#names .name").removeClass("play");
-        };
-        document.body.addEventListener("mouseup", releasehandler);
-        document.body.addEventListener("touchend", releasehandler);
+        }
+    };
 
-        var removeParticipantMenus = function () {
-            $(".participant-menu").remove();
-            $(".participantSpotlight").hide();
-            document.removeEventListener("mousedown", removeParticipantMenus);
-            document.removeEventListener("touchstart", removeParticipantMenus);
-        };
+    ele.addEventListener("mousedown", touchhandler);
+    ele.addEventListener("touchstart", touchhandler);
 
-        var participantMenu = function (part) {
-            if (!part) return;
-            removeParticipantMenus();
-            document.addEventListener("mousedown", removeParticipantMenus);
-            document.addEventListener("touchstart", removeParticipantMenus);
-            $("#" + part.id)
-                .find(".enemySpotlight")
-                .show();
-            var menu = $('<div class="participant-menu"></div>');
-            $("body").append(menu);
-            // move menu to name position
-            var jq_nd = $(part.nameDiv);
-            var pos = jq_nd.position();
-            menu.css({
-                top: pos.top + jq_nd.height() + 15,
-                left: pos.left + 6,
-                background: part.color || "black"
-            });
-            menu.on("mousedown touchstart", function (evt) {
-                evt.stopPropagation();
-                var target = $(evt.target);
-                if (target.hasClass("menu-item")) {
-                    target.addClass("clicked");
-                    menu.fadeOut(200, function () {
-                        removeParticipantMenus();
-                    });
-                }
-            });
-            // this spaces stuff out but also can be used for informational
-            $('<div class="info"></div>').appendTo(menu).text(part._id);
-            // add menu items
-            if (gPianoMutes.indexOf(part._id) == -1) {
-                $('<div class="menu-item">Mute Notes</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        gPianoMutes.push(part._id);
-                        if (localStorage)
-                            localStorage.pianoMutes = gPianoMutes.join(",");
-                        $(part.nameDiv).addClass("muted-notes");
-                    });
-            } else {
-                $('<div class="menu-item">Unmute Notes</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        var i;
-                        while ((i = gPianoMutes.indexOf(part._id)) != -1)
-                            gPianoMutes.splice(i, 1);
-                        if (localStorage)
-                            localStorage.pianoMutes = gPianoMutes.join(",");
-                        $(part.nameDiv).removeClass("muted-notes");
-                    });
+    const releasehandler = e => {
+        $("#names .name").removeClass("play");
+    };
+
+    document.body.addEventListener("mouseup", releasehandler);
+    document.body.addEventListener("touchend", releasehandler);
+
+    const removeParticipantMenus = () => {
+        $(".participant-menu").remove();
+        $(".participantSpotlight").hide();
+
+        document.removeEventListener("mousedown", removeParticipantMenus);
+        document.removeEventListener("touchstart", removeParticipantMenus);
+    };
+
+    const participantMenu = part => {
+        if (!part) return;
+
+        removeParticipantMenus();
+
+        document.addEventListener("mousedown", removeParticipantMenus);
+        document.addEventListener("touchstart", removeParticipantMenus);
+
+        $("#" + part.id)
+            .find(".enemySpotlight")
+            .show();
+
+        const menu = $('<div class="participant-menu"></div>');
+
+        $("body").append(menu);
+
+        // move menu to name position
+        const jq_nd = $(part.nameDiv);
+        const pos = jq_nd.position();
+
+        menu.css({
+            top: pos.top + jq_nd.height() + 15,
+            left: pos.left + 6,
+            background: part.color || "black"
+        });
+
+        menu.on("mousedown touchstart", evt => {
+            evt.stopPropagation();
+
+            const target = $(evt.target);
+
+            if (target.hasClass("menu-item")) {
+                target.addClass("clicked");
+
+                menu.fadeOut(200, () => {
+                    removeParticipantMenus();
+                });
             }
-            if (gChatMutes.indexOf(part._id) == -1) {
-                $('<div class="menu-item">Mute Chat</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        gChatMutes.push(part._id);
-                        if (localStorage)
-                            localStorage.chatMutes = gChatMutes.join(",");
-                        $(part.nameDiv).addClass("muted-chat");
-                    });
-            } else {
-                $('<div class="menu-item">Unmute Chat</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        var i;
-                        while ((i = gChatMutes.indexOf(part._id)) != -1)
-                            gChatMutes.splice(i, 1);
-                        if (localStorage)
-                            localStorage.chatMutes = gChatMutes.join(",");
-                        $(part.nameDiv).removeClass("muted-chat");
-                    });
-            }
-            if (
-                !(gPianoMutes.indexOf(part._id) >= 0) ||
-                !(gChatMutes.indexOf(part._id) >= 0)
-            ) {
-                $('<div class="menu-item">Mute Completely</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        gPianoMutes.push(part._id);
-                        if (localStorage)
-                            localStorage.pianoMutes = gPianoMutes.join(",");
-                        gChatMutes.push(part._id);
-                        if (localStorage)
-                            localStorage.chatMutes = gChatMutes.join(",");
-                        $(part.nameDiv).addClass("muted-notes");
-                        $(part.nameDiv).addClass("muted-chat");
-                    });
-            }
-            if (
-                gPianoMutes.indexOf(part._id) >= 0 ||
-                gChatMutes.indexOf(part._id) >= 0
-            ) {
-                $('<div class="menu-item">Unmute Completely</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        var i;
-                        while ((i = gPianoMutes.indexOf(part._id)) != -1)
-                            gPianoMutes.splice(i, 1);
-                        while ((i = gChatMutes.indexOf(part._id)) != -1)
-                            gChatMutes.splice(i, 1);
-                        if (localStorage)
-                            localStorage.pianoMutes = gPianoMutes.join(",");
-                        if (localStorage)
-                            localStorage.chatMutes = gChatMutes.join(",");
-                        $(part.nameDiv).removeClass("muted-notes");
-                        $(part.nameDiv).removeClass("muted-chat");
-                    });
-            }
-            if (gClient.isOwner()) {
-                $('<div class="menu-item give-crown">Give Crown</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        if (
-                            confirm("Give room ownership to " + part.name + "?")
-                        )
-                            gClient.sendArray([{ m: "chown", id: part.id }]);
-                    });
-                $('<div class="menu-item kickban">Kickban</div>')
-                    .appendTo(menu)
-                    .on("mousedown touchstart", function (evt) {
-                        var minutes = prompt("How many minutes? (0-60)", "30");
-                        if (minutes === null) return;
-                        minutes = parseFloat(minutes) || 0;
-                        var ms = minutes * 60 * 1000;
-                        gClient.sendArray([
-                            { m: "kickban", _id: part._id, ms: ms }
-                        ]);
-                    });
-            }
-            menu.fadeIn(100);
-        };
-    })();
+        });
+
+        // this spaces stuff out but also can be used for informational
+        $('<div class="info"></div>').appendTo(menu).text(part._id);
+
+        // add menu items
+        if (gPianoMutes.indexOf(part._id) == -1) {
+            $('<div class="menu-item">Mute Notes</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    gPianoMutes.push(part._id);
+
+                    if (localStorage)
+                        localStorage.pianoMutes = gPianoMutes.join(",");
+
+                    $(part.nameDiv).addClass("muted-notes");
+                });
+        } else {
+            $('<div class="menu-item">Unmute Notes</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    let i;
+
+                    while ((i = gPianoMutes.indexOf(part._id)) != -1)
+                        gPianoMutes.splice(i, 1);
+
+                    if (localStorage)
+                        localStorage.pianoMutes = gPianoMutes.join(",");
+
+                    $(part.nameDiv).removeClass("muted-notes");
+                });
+        }
+
+        if (gChatMutes.indexOf(part._id) == -1) {
+            $('<div class="menu-item">Mute Chat</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    gChatMutes.push(part._id);
+
+                    if (localStorage)
+                        localStorage.chatMutes = gChatMutes.join(",");
+
+                    $(part.nameDiv).addClass("muted-chat");
+                });
+        } else {
+            $('<div class="menu-item">Unmute Chat</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    let i;
+
+                    while ((i = gChatMutes.indexOf(part._id)) != -1)
+                        gChatMutes.splice(i, 1);
+
+                    if (localStorage)
+                        localStorage.chatMutes = gChatMutes.join(",");
+
+                    $(part.nameDiv).removeClass("muted-chat");
+                });
+        }
+
+        if (
+            !(gPianoMutes.indexOf(part._id) >= 0) ||
+            !(gChatMutes.indexOf(part._id) >= 0)
+        ) {
+            $('<div class="menu-item">Mute Completely</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    gPianoMutes.push(part._id);
+
+                    if (localStorage)
+                        localStorage.pianoMutes = gPianoMutes.join(",");
+
+                    gChatMutes.push(part._id);
+
+                    if (localStorage)
+                        localStorage.chatMutes = gChatMutes.join(",");
+
+                    $(part.nameDiv).addClass("muted-notes");
+                    $(part.nameDiv).addClass("muted-chat");
+                });
+        }
+
+        if (
+            gPianoMutes.indexOf(part._id) >= 0 ||
+            gChatMutes.indexOf(part._id) >= 0
+        ) {
+            $('<div class="menu-item">Unmute Completely</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    let i;
+
+                    while ((i = gPianoMutes.indexOf(part._id)) != -1)
+                        gPianoMutes.splice(i, 1);
+
+                    while ((i = gChatMutes.indexOf(part._id)) != -1)
+                        gChatMutes.splice(i, 1);
+
+                    if (localStorage)
+                        localStorage.pianoMutes = gPianoMutes.join(",");
+                    if (localStorage)
+                        localStorage.chatMutes = gChatMutes.join(",");
+
+                    $(part.nameDiv).removeClass("muted-notes");
+                    $(part.nameDiv).removeClass("muted-chat");
+                });
+        }
+
+        if (gClient.isOwner()) {
+            $('<div class="menu-item give-crown">Give Crown</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    if (confirm("Give room ownership to " + part.name + "?"))
+                        gClient.sendArray([{ m: "chown", id: part.id }]);
+                });
+
+            $('<div class="menu-item kickban">Kickban</div>')
+                .appendTo(menu)
+                .on("mousedown touchstart", evt => {
+                    let minutes = prompt("How many minutes? (0-60)", "30");
+
+                    if (minutes === null) return;
+                    minutes = parseFloat(minutes) || 0;
+
+                    let ms = minutes * 60 * 1000;
+
+                    gClient.sendArray([
+                        { m: "kickban", _id: part._id, ms: ms }
+                    ]);
+                });
+        }
+
+        menu.fadeIn(100);
+    };
 
     // Notification class
 
     ////////////////////////////////////////////////////////////////
 
-    class Notification {
+    class Notification extends EventEmitter {
         constructor(par) {
+            super();
+
             if (this instanceof Notification === false) throw "yeet";
             EventEmitter.call(this);
 
-            var par = par || {};
+            par = par || {};
 
             this.id = "Notification-" + (par.id || Math.random());
             this.title = par.title || "";
@@ -2083,18 +2443,21 @@ $(function () {
             this.duration = par.duration || 30000;
             this["class"] = par["class"] || "classic";
 
-            var self = this;
-            var eles = $("#" + this.id);
+            const eles = $("#" + this.id);
+
             if (eles.length > 0) {
                 eles.remove();
             }
+
             this.domElement = $(
                 '<div class="notification" style="display: none;"><div class="notification-body"><div class="title"></div>' +
                     '<div class="text"></div></div><div class="x">Ⓧ</div></div>'
             );
+
             this.domElement[0].id = this.id;
             this.domElement.addClass(this["class"]);
             this.domElement.find(".title").text(this.title);
+
             if (this.text.length > 0) {
                 this.domElement.find(".text").text(this.text);
             } else if (this.html instanceof HTMLElement) {
@@ -2102,63 +2465,80 @@ $(function () {
             } else if (this.html.length > 0) {
                 this.domElement.find(".text").html(this.html);
             }
+
             document.body.appendChild(this.domElement.get(0));
 
             this.position();
-            this.onresize = function () {
-                self.position();
+
+            this.onresize = () => {
+                this.position();
             };
+
             window.addEventListener("resize", this.onresize);
 
-            this.domElement.find(".x").click(function () {
-                self.close();
+            this.domElement.find(".x").click(() => {
+                this.close();
             });
 
             $(this.domElement).fadeIn(100);
 
             if (this.duration > 0) {
-                setTimeout(function () {
-                    self.close();
+                setTimeout(() => {
+                    this.close();
                 }, this.duration);
             }
 
             return this;
         }
+
+        /**
+         * Reset this notification's position based on offset
+         */
         position() {
-            var pos = this.target.offset();
-            var x =
+            const pos = this.target.offset();
+
+            let x =
                 pos.left -
                 this.domElement.width() / 2 +
                 this.target.width() / 4;
-            var y = pos.top - this.domElement.height() - 8;
-            var width = this.domElement.width();
+
+            const y = pos.top - this.domElement.height() - 8;
+            const width = this.domElement.width();
+
             if (x + width > $("body").width()) {
                 x -= x + width - $("body").width();
             }
+
             if (x < 0) x = 0;
+
             this.domElement.offset({ left: x, top: y });
         }
+
+        /**
+         * Close this notification
+         */
         close() {
-            var self = this;
             window.removeEventListener("resize", this.onresize);
-            this.domElement.fadeOut(250, function () {
-                self.domElement.remove();
-                self.emit("close");
+
+            this.domElement.fadeOut(250, () => {
+                this.domElement.remove();
+                this.emit("close");
             });
         }
     }
 
-    mixin(Notification.prototype, EventEmitter.prototype);
     // set variables from settings or set settings
 
     ////////////////////////////////////////////////////////////////
 
-    var gKeyboardSeq = 0;
-    var gKnowsYouCanUseKeyboard = false;
+    let gKeyboardSeq = 0;
+    let gKnowsYouCanUseKeyboard = false;
+
     if (localStorage && localStorage.knowsYouCanUseKeyboard)
         gKnowsYouCanUseKeyboard = true;
+
     if (!gKnowsYouCanUseKeyboard) {
-        window.gKnowsYouCanUseKeyboardTimeout = setTimeout(function () {
+        window.gKnowsYouCanUseKeyboardTimeout = setTimeout(() => {
             window.gKnowsYouCanUseKeyboardNotification = new Notification({
                 title: "Did you know!?!",
                 text: "You can play the piano with your keyboard, too.  Try it!",
@@ -2172,24 +2552,31 @@ $(function () {
         if (localStorage.volume) {
             volume_slider.value = localStorage.volume;
             gPiano.audio.setVolume(localStorage.volume);
+
             $("#volume-label").text(
                 "Volume: " + Math.floor(gPiano.audio.volume * 100) + "%"
             );
         } else localStorage.volume = gPiano.audio.volume;
 
         window.gHasBeenHereBefore = localStorage.gHasBeenHereBefore || false;
+
         if (gHasBeenHereBefore) {
         }
         localStorage.gHasBeenHereBefore = true;
     }
 
     // warn user about loud noises before starting sound (no autoplay)
-    openModal("#sound-warning");
-    var user_interact = function (evt) {
+    //openModal("#sound-warning");
+    // moved
+
+    const user_interact = evt => {
         document.removeEventListener("click", user_interact);
+
         closeModal();
+
         MPP.piano.audio.resume();
     };
+
     document.addEventListener("click", user_interact);
 
     // New room, change room
@@ -2197,53 +2584,68 @@ $(function () {
     ////////////////////////////////////////////////////////////////
 
     $("#room > .info").text("--");
-    gClient.on("ch", function (msg) {
-        var channel = msg.ch;
-        var info = $("#room > .info");
+
+    gClient.on("ch", msg => {
+        const channel = msg.ch;
+        const info = $("#room > .info");
+
         info.text(channel._id);
+
         if (channel.settings.lobby) info.addClass("lobby");
         else info.removeClass("lobby");
+
         if (!channel.settings.chat) info.addClass("no-chat");
         else info.removeClass("no-chat");
+
         if (channel.settings.crownsolo) info.addClass("crownsolo");
         else info.removeClass("crownsolo");
+
         if (channel.settings["no cussing"]) info.addClass("no-cussing");
         else info.removeClass("no-cussing");
+
         if (!channel.settings.visible) info.addClass("not-visible");
         else info.removeClass("not-visible");
     });
-    gClient.on("ls", function (ls) {
-        for (var i in ls.u) {
-            if (!ls.u.hasOwnProperty(i)) continue;
-            var room = ls.u[i];
-            var info = $(
+
+    gClient.on("ls", ls => {
+        for (const room of ls.u) {
+            let info = $(
                 '#room .info[roomname="' +
                     (room._id + "")
                         .replace(/[\\"']/g, "\\$&")
                         .replace(/\u0000/g, "\\0") +
                     '"]'
             );
+
             if (info.length == 0) {
                 info = $('<div class="info"></div>');
                 info.attr("roomname", room._id);
                 $("#room .more").append(info);
             }
+
             info.text(room._id + " (" + room.count + ")");
+
             if (room.settings.lobby) info.addClass("lobby");
             else info.removeClass("lobby");
+
             if (!room.settings.chat) info.addClass("no-chat");
             else info.removeClass("no-chat");
+
             if (room.settings.crownsolo) info.addClass("crownsolo");
             else info.removeClass("crownsolo");
+
             if (room.settings["no cussing"]) info.addClass("no-cussing");
             else info.removeClass("no-cussing");
+
             if (!room.settings.visible) info.addClass("not-visible");
             else info.removeClass("not-visible");
+
             if (room.banned) info.addClass("banned");
             else info.removeClass("banned");
         }
     });
-    $("#room").on("click", function (evt) {
+
+    $("#room").on("click", evt => {
         evt.stopPropagation();
 
         // clicks on a new room
@@ -2252,47 +2654,58 @@ $(function () {
             $(evt.target).parents(".more").length
         ) {
             $("#room .more").fadeOut(250);
-            var selected_name = $(evt.target).attr("roomname");
+
+            const selected_name = $(evt.target).attr("roomname");
+
             if (typeof selected_name != "undefined") {
                 changeRoom(selected_name, "right");
             }
+
             return false;
         }
         // clicks on "New Room..."
         else if ($(evt.target).hasClass("new")) {
             openModal("#new-room", "input[name=name]");
         }
+
         // all other clicks
-        var doc_click = function (evt) {
+        const doc_click = evt => {
             if ($(evt.target).is("#room .more")) return;
+
             $(document).off("mousedown", doc_click);
             $("#room .more").fadeOut(250);
+
             gClient.sendArray([{ m: "-ls" }]);
         };
+
         $(document).on("mousedown", doc_click);
+
         $("#room .more .info").remove();
         $("#room .more").show();
+
         gClient.sendArray([{ m: "+ls" }]);
     });
-    $("#new-room-btn").on("click", function (evt) {
+
+    $("#new-room-btn").on("click", evt => {
         evt.stopPropagation();
+
         openModal("#new-room", "input[name=name]");
     });
 
-    $("#play-alone-btn").on("click", function (evt) {
+    $("#play-alone-btn").on("click", evt => {
         evt.stopPropagation();
-        var room_name = "Room" + Math.floor(Math.random() * 1000000000000);
+
+        const room_name = "Room" + Math.floor(Math.random() * 1000000000000);
         changeRoom(room_name, "right", { visible: false });
-        setTimeout(function () {
+
+        setTimeout(() => {
             let html =
                 "You are playing alone in a room by yourself, but you can always invite \
 				friends by sending them the link.";
 
             if (configs.config.playingAloneSocialLinks) {
-                html =
-                    "You are playing alone in a room by yourself, but you can always invite \
-				friends by sending them the link.<br/><br/>\
-				<a href=\"#\" onclick=\"window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),'facebook-share-dialog','width=626,height=436');return false;\">Share on Facebook</a><br/><br/>\
+                html +=
+                    "\n<a href=\"#\" onclick=\"window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),'facebook-share-dialog','width=626,height=436');return false;\">Share on Facebook</a><br/><br/>\
 				<a href=\"http://twitter.com/home?status=" +
                     encodeURIComponent(location.href) +
                     '" target="_blank">Tweet</a>';
@@ -2307,101 +2720,124 @@ $(function () {
         }, 1000);
     });
 
-    var gModal;
+    let gModal;
 
-    function modalHandleEsc(evt) {
+    const modalHandleEsc = evt => {
         if (evt.keyCode == 27) {
             closeModal();
+
             evt.preventDefault();
             evt.stopPropagation();
         }
-    }
+    };
 
-    function openModal(selector, focus) {
-        if (chat) chat.blur();
+    const openModal = (selector, focus) => {
+        try {
+            if (chat) chat.blur();
+        } catch (err) {}
+
         releaseKeyboard();
+
         $(document).on("keydown", modalHandleEsc);
+
         $("#modal #modals > *").hide();
         $("#modal").fadeIn(250);
+
         $(selector).show();
-        setTimeout(function () {
+
+        setTimeout(() => {
             $(selector).find(focus).focus();
         }, 100);
-        gModal = selector;
-    }
 
-    function closeModal() {
+        gModal = selector;
+    };
+
+    const closeModal = () => {
         $(document).off("keydown", modalHandleEsc);
+
         $("#modal").fadeOut(300);
         // $("#modal #modals > *").hide();
         captureKeyboard();
-        gModal = null;
-    }
 
-    var modal_bg = $("#modal .bg")[0];
-    $(modal_bg).on("click", function (evt) {
+        gModal = null;
+    };
+
+    const modal_bg = $("#modal .bg")[0];
+
+    $(modal_bg).on("click", evt => {
         if (evt.target != modal_bg) return;
         closeModal();
     });
 
-    (function () {
-        function submit() {
-            var name = $("#new-room .text[name=name]").val();
-            var settings = {
-                visible: $("#new-room .checkbox[name=visible]").is(":checked"),
-                chat: true
-            };
-            $("#new-room .text[name=name]").val("");
-            closeModal();
-            changeRoom(name, "right", settings);
-            setTimeout(function () {
-                let html =
-                    "You can invite friends to your room by sending them the link.<br/><br/>\
-					<a href=\"#\" onclick=\"window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),'facebook-share-dialog','width=626,height=436');return false;\">Share on Facebook</a><br/><br/>\
-					<a href=\"http://twitter.com/home?status=" +
+    const submit = () => {
+        let name = $("#new-room .text[name=name]").val();
+
+        const settings = {
+            visible: $("#new-room .checkbox[name=visible]").is(":checked"),
+            chat: true
+        };
+
+        $("#new-room .text[name=name]").val("");
+
+        closeModal();
+        changeRoom(name, "right", settings);
+
+        setTimeout(() => {
+            let html =
+                "You can invite friends to your room by sending them the link.";
+
+            if (configs.config.createdRoomSocialLinks) {
+                html +=
+                    "\n<a href=\"#\" onclick=\"window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),'facebook-share-dialog','width=626,height=436');return false;\">Share on Facebook</a><br/><br/>\
+                <a href=\"http://twitter.com/home?status=" +
                     encodeURIComponent(location.href) +
                     '" target="_blank">Tweet</a>';
-
-                if (!configs.config.createdRoomSocialLinks) {
-                    html =
-                        "You can invite friends to your room by sending them the link.";
-                }
-
-                new Notification({
-                    id: "share",
-                    title: "Created a Room",
-                    html,
-                    duration: 25000
-                });
-            }, 1000);
-        }
-        $("#new-room .submit").click(function (evt) {
-            submit();
-        });
-        $("#new-room .text[name=name]").keypress(function (evt) {
-            if (evt.keyCode == 13) {
-                submit();
-            } else if (evt.keyCode == 27) {
-                closeModal();
-            } else {
-                return;
             }
-            evt.preventDefault();
-            evt.stopPropagation();
-            return false;
-        });
-    })();
 
-    function changeRoom(name, direction, settings, push) {
+            new Notification({
+                id: "share",
+                title: "Created a Room",
+                html,
+                duration: 25000
+            });
+        }, 1000);
+    };
+
+    // warn user about loud noises before starting sound (no autoplay)
+    openModal("#sound-warning");
+
+    $("#new-room .submit").click(evt => {
+        submit();
+    });
+
+    $("#new-room .text[name=name]").keypress(evt => {
+        if (evt.keyCode == 13) {
+            submit();
+        } else if (evt.keyCode == 27) {
+            closeModal();
+        } else {
+            return;
+        }
+
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        return false;
+    });
+
+    const changeRoom = (name, direction, settings, push) => {
         if (!settings) settings = {};
         if (!direction) direction = "right";
         if (typeof push == "undefined") push = true;
-        var opposite = direction == "left" ? "right" : "left";
+
+        let opposite = direction == "left" ? "right" : "left";
 
         if (name == "") name = "lobby";
         if (gClient.channel && gClient.channel._id === name) return;
+
         if (push) {
-            var url = "/" + encodeURIComponent(name).replace("'", "%27");
+            let url = "/" + encodeURIComponent(name).replace("'", "%27");
+
             if (window.history && history.pushState) {
                 history.pushState(
                     { depth: (gHistoryDepth += 1), name: name },
@@ -2416,7 +2852,7 @@ $(function () {
 
         gClient.setChannel(name, settings);
 
-        var t = 0,
+        let t = 0,
             d = 100;
 
         if (configs.config.enableSlide) {
@@ -2426,38 +2862,43 @@ $(function () {
                 $("#piano")
                     .addClass("ease-out")
                     .addClass("slide-" + opposite);
-                setTimeout(function () {
+
+                setTimeout(() => {
                     $("#piano")
                         .removeClass("ease-out")
                         .removeClass("slide-" + opposite)
                         .addClass("slide-" + direction);
                 }, (t += d));
-                setTimeout(function () {
+
+                setTimeout(() => {
                     $("#piano")
                         .addClass("ease-in")
                         .removeClass("slide-" + direction);
                 }, (t += d));
-                setTimeout(function () {
+
+                setTimeout(() => {
                     $("#piano").removeClass("ease-in");
 
-                    setTimeout(function () {
+                    setTimeout(() => {
                         $("#piano").removeClass("slide");
                     }, d);
                 }, (t += d));
             });
         }
-    }
+    };
 
-    var gHistoryDepth = 0;
-    $(window).on("popstate", function (evt) {
-        var depth = evt.state ? evt.state.depth : 0;
+    let gHistoryDepth = 0;
+
+    $(window).on("popstate", evt => {
+        const depth = evt.state ? evt.state.depth : 0;
         if (depth == gHistoryDepth) return; // <-- forgot why I did that though...
 
-        var direction = depth <= gHistoryDepth ? "left" : "right";
+        const direction = depth <= gHistoryDepth ? "left" : "right";
         gHistoryDepth = depth;
 
-        var name = decodeURIComponent(window.location.pathname);
-        if (name.substr(0, 1) == "/") name = name.substr(1);
+        const name = decodeURIComponent(window.location.pathname);
+        if (name.substring(0, 1) == "/") name = name.substring(1);
+
         changeRoom(name, direction, null, false);
     });
 
@@ -2465,85 +2906,103 @@ $(function () {
 
     ////////////////////////////////////////////////////////////////
 
-    (function () {
-        function submit() {
-            var set = {
-                name: $("#rename input[name=name]").val(),
-                color: $("#rename input[name=color]").val()
-            };
-            //$("#rename .text[name=name]").val("");
+    const renameSubmit = () => {
+        const set = {
+            name: $("#rename input[name=name]").val(),
+            color: $("#rename input[name=color]").val()
+        };
+
+        //$("#rename .text[name=name]").val("");
+
+        closeModal();
+
+        gClient.sendArray([{ m: "userset", set: set }]);
+    };
+
+    $("#rename .submit").click(evt => {
+        renameSubmit();
+    });
+
+    $("#rename .text[name=name]").keypress(evt => {
+        if (evt.keyCode == 13) {
+            renameSubmit();
+        } else if (evt.keyCode == 27) {
             closeModal();
-            gClient.sendArray([{ m: "userset", set: set }]);
+        } else {
+            return;
         }
-        $("#rename .submit").click(function (evt) {
-            submit();
-        });
-        $("#rename .text[name=name]").keypress(function (evt) {
-            if (evt.keyCode == 13) {
-                submit();
-            } else if (evt.keyCode == 27) {
-                closeModal();
-            } else {
-                return;
-            }
-            evt.preventDefault();
-            evt.stopPropagation();
-            return false;
-        });
-    })();
+
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        return false;
+    });
 
     // chatctor
 
     ////////////////////////////////////////////////////////////////
 
-    var chat = (function () {
-        gClient.on("ch", function (msg) {
+    const chat = (() => {
+        gClient.on("ch", msg => {
             if (msg.ch.settings.chat) {
                 chat.show();
             } else {
                 chat.hide();
             }
         });
-        gClient.on("disconnect", function (msg) {});
-        gClient.on("c", function (msg) {
+
+        gClient.on("disconnect", msg => {
+            if (configs.config.hideChatOnDisconnect) chat.hide();
+        });
+
+        gClient.on("c", msg => {
             chat.clear();
             if (msg.c) {
-                for (var i = 0; i < msg.c.length; i++) {
+                for (let i = 0; i < msg.c.length; i++) {
                     chat.receive(msg.c[i]);
                 }
             }
         });
-        gClient.on("a", function (msg) {
+
+        gClient.on("a", msg => {
             chat.receive(msg);
         });
 
-        $("#chat input").on("focus", function (evt) {
+        $("#chat input").on("focus", evt => {
             releaseKeyboard();
+
             $("#chat").addClass("chatting");
+
             chat.scrollToBottom();
         });
-        /*$("#chat input").on("blur", function(evt) {
+
+        /*$("#chat input").on("blur", evt => {
 			captureKeyboard();
+
 			$("#chat").removeClass("chatting");
+
 			chat.scrollToBottom();
 		});*/
-        $(document).mousedown(function (evt) {
+
+        $(document).mousedown(evt => {
             if (!$("#chat").has(evt.target).length > 0) {
                 chat.blur();
             }
         });
-        document.addEventListener("touchstart", function (event) {
-            for (var i in event.changedTouches) {
-                var touch = event.changedTouches[i];
+
+        document.addEventListener("touchstart", event => {
+            for (const touch of event.changedTouches) {
                 if (!$("#chat").has(touch.target).length > 0) {
                     chat.blur();
                 }
             }
         });
-        $(document).on("keydown", function (evt) {
+
+        $(document).on("keydown", evt => {
             if ($("#chat").hasClass("chatting")) {
                 if (evt.keyCode == 27) {
                     chat.blur();
+
                     evt.preventDefault();
                     evt.stopPropagation();
                 } else if (evt.keyCode == 13) {
@@ -2553,26 +3012,32 @@ $(function () {
                 $("#chat input").focus();
             }
         });
+
         $("#chat input").on("keydown", function (evt) {
             if (evt.keyCode == 13) {
                 if (MPP.client.isConnected()) {
-                    var message = $(this).val();
+                    let message = $(this).val();
+
                     if (message.length == 0) {
-                        setTimeout(function () {
+                        setTimeout(() => {
                             chat.blur();
                         }, 100);
                     } else if (message.length <= 512) {
                         chat.send(message);
+
                         $(this).val("");
-                        setTimeout(function () {
+
+                        setTimeout(() => {
                             chat.blur();
                         }, 100);
                     }
                 }
+
                 evt.preventDefault();
                 evt.stopPropagation();
             } else if (evt.keyCode == 27) {
                 chat.blur();
+
                 evt.preventDefault();
                 evt.stopPropagation();
             } else if (evt.keyCode == 9) {
@@ -2582,40 +3047,42 @@ $(function () {
         });
 
         return {
-            show: function () {
+            show: () => {
                 $("#chat").fadeIn();
             },
 
-            hide: function () {
+            hide: () => {
                 $("#chat").fadeOut();
             },
 
-            clear: function () {
+            clear: () => {
                 $("#chat li").remove();
             },
 
-            scrollToBottom: function () {
-                var ele = $("#chat ul").get(0);
+            scrollToBottom: () => {
+                const ele = $("#chat ul").get(0);
                 ele.scrollTop = ele.scrollHeight - ele.clientHeight;
             },
 
-            blur: function () {
+            blur: () => {
                 if ($("#chat").hasClass("chatting")) {
                     $("#chat input").get(0).blur();
                     $("#chat").removeClass("chatting");
+
                     chat.scrollToBottom();
+
                     captureKeyboard();
                 }
             },
 
-            send: function (message) {
+            send: message => {
                 gClient.sendArray([{ m: "a", message: message }]);
             },
 
-            receive: function (msg) {
+            receive: msg => {
                 if (gChatMutes.indexOf(msg.p._id) != -1) return;
 
-                var li = $('<li><span class="name"/><span class="message"/>');
+                const li = $('<li><span class="name"/><span class="message"/>');
 
                 li.find(".name").text(msg.p.name + ":");
                 li.find(".message").text(msg.a);
@@ -2623,13 +3090,16 @@ $(function () {
 
                 $("#chat ul").append(li);
 
-                var eles = $("#chat ul li").get();
-                for (var i = 1; i <= 50 && i <= eles.length; i++) {
+                const eles = $("#chat ul li").get();
+
+                for (let i = 1; i <= 50 && i <= eles.length; i++) {
                     eles[eles.length - i].style.opacity = 1.0 - i * 0.03;
                 }
+
                 if (eles.length > 50) {
                     eles[0].style.display = "none";
                 }
+
                 if (eles.length > 256) {
                     $(eles[0]).remove();
                 }
@@ -2638,7 +3108,8 @@ $(function () {
                 if (!$("#chat").hasClass("chatting")) {
                     chat.scrollToBottom();
                 } else {
-                    var ele = $("#chat ul").get(0);
+                    const ele = $("#chat ul").get(0);
+
                     if (
                         ele.scrollTop >
                         ele.scrollHeight - ele.offsetHeight - 50
@@ -2666,9 +3137,9 @@ $(function () {
 
     let devices_json = "[]";
 
-    function sendDevices() {
+    const sendDevices = () => {
         gClient.sendArray([{ m: "devices", list: JSON.parse(devices_json) }]);
-    }
+    };
 
     gClient.on("connect", sendDevices);
 
@@ -2971,8 +3442,10 @@ $(function () {
                         } else {
                             outputs_ul.textContent = "(none)";
                         }
-                        var div = document.createElement("div");
-                        var h1 = document.createElement("h1");
+
+                        let div = document.createElement("div");
+                        let h1 = document.createElement("h1");
+
                         h1.textContent = "Inputs";
                         div.appendChild(h1);
                         div.appendChild(inputs_ul);
@@ -3337,7 +3810,7 @@ $(function () {
             });
             knob.emit("change", knob);
 
-            var div = document.createElement("div");
+            let div = document.createElement("div");
             div.innerHTML =
                 "<br><br><br><br><center>this space intentionally left blank</center><br><br><br><br>";
             html.appendChild(div);
