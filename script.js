@@ -3013,10 +3013,10 @@ $(() => {
             }
         });
 
-        $("#chat input").on("keydown", function (evt) {
+        $("#chat input").on("keydown", evt => {
             if (evt.keyCode == 13) {
                 if (MPP.client.isConnected()) {
-                    let message = $(this).val();
+                    let message = $("#chat input").val();
 
                     if (message.length == 0) {
                         setTimeout(() => {
@@ -3025,7 +3025,7 @@ $(() => {
                     } else if (message.length <= 512) {
                         chat.send(message);
 
-                        $(this).val("");
+                        $("#chat input").val("");
 
                         setTimeout(() => {
                             chat.blur();
@@ -3124,12 +3124,13 @@ $(() => {
 
     ////////////////////////////////////////////////////////////////
 
-    var MIDI_TRANSPOSE = -12;
-    var MIDI_KEY_NAMES = ["a-1", "as-1", "b-1"];
-    var bare_notes = "c cs d ds e f fs g gs a as b".split(" ");
-    for (var oct = 0; oct < 7; oct++) {
-        for (var i in bare_notes) {
-            MIDI_KEY_NAMES.push(bare_notes[i] + oct);
+    let MIDI_TRANSPOSE = -12;
+    let MIDI_KEY_NAMES = ["a-1", "as-1", "b-1"];
+    const bare_notes = "c cs d ds e f fs g gs a as b".split(" ");
+
+    for (let oct = 0; oct < 7; oct++) {
+        for (const bare_note of bare_notes) {
+            MIDI_KEY_NAMES.push(bare_note + oct);
         }
     }
 
@@ -3143,380 +3144,429 @@ $(() => {
 
     gClient.on("connect", sendDevices);
 
-    (function () {
-        if (navigator.requestMIDIAccess) {
-            navigator.requestMIDIAccess().then(
-                function (midi) {
-                    // console.log(midi);
-                    function midimessagehandler(evt) {
-                        if (!evt.target.enabled) return;
-                        //console.log(evt);
-                        const channel = evt.data[0] & 0xf;
-                        const cmd = evt.data[0] >> 4;
-                        const note_number = evt.data[1];
-                        const vel = evt.data[2];
+    if (navigator.requestMIDIAccess) {
+        navigator.requestMIDIAccess().then(
+            midi => {
+                // console.log(midi);
+                const midimessagehandler = evt => {
+                    if (!evt.target.enabled) return;
+                    //console.log(evt);
+                    const channel = evt.data[0] & 0xf;
+                    const cmd = evt.data[0] >> 4;
+                    const note_number = evt.data[1];
+                    const vel = evt.data[2];
 
-                        //console.log(channel, cmd, note_number, vel);
-                        if (cmd == 8 || (cmd == 9 && vel == 0)) {
-                            // NOTE_OFF
-                            release(
-                                MIDI_KEY_NAMES[note_number - 9 + MIDI_TRANSPOSE]
-                            );
-                        } else if (cmd == 9) {
-                            // NOTE_ON
-                            if (evt.target.volume !== undefined)
-                                vel *= evt.target.volume;
-                            press(
-                                MIDI_KEY_NAMES[
-                                    note_number - 9 + MIDI_TRANSPOSE
-                                ],
-                                vel / 100
-                            );
-                        } else if (cmd == 11) {
-                            // CONTROL_CHANGE
-                            if (!gAutoSustain) {
-                                if (note_number == 64) {
-                                    if (vel > 0) {
-                                        pressSustain();
-                                    } else {
-                                        releaseSustain();
+                    //console.log(channel, cmd, note_number, vel);
+                    if (cmd == 8 || (cmd == 9 && vel == 0)) {
+                        // NOTE_OFF
+                        release(
+                            MIDI_KEY_NAMES[note_number - 9 + MIDI_TRANSPOSE]
+                        );
+                    } else if (cmd == 9) {
+                        // NOTE_ON
+                        if (evt.target.volume !== undefined)
+                            vel *= evt.target.volume;
+                        press(
+                            MIDI_KEY_NAMES[note_number - 9 + MIDI_TRANSPOSE],
+                            vel / 100
+                        );
+                    } else if (cmd == 11) {
+                        // CONTROL_CHANGE
+                        if (!gAutoSustain) {
+                            if (note_number == 64) {
+                                if (vel > 0) {
+                                    pressSustain();
+                                } else {
+                                    releaseSustain();
+                                }
+                            }
+                        }
+                    }
+                };
+
+                const deviceInfo = dev => {
+                    return {
+                        type: dev.type,
+                        //id: dev.id,
+                        manufacturer: dev.manufacturer,
+                        name: dev.name,
+                        version: dev.version,
+                        //connection: dev.connection,
+                        //state: dev.state,
+                        enabled: dev.enabled,
+                        volume: dev.volume
+                    };
+                };
+
+                const updateDevices = () => {
+                    const list = [];
+
+                    if (midi.inputs.size > 0) {
+                        const inputs = midi.inputs.values();
+
+                        for (
+                            let input_it = inputs.next();
+                            input_it && !input_it.done;
+                            input_it = inputs.next()
+                        ) {
+                            const input = input_it.value;
+                            list.push(deviceInfo(input));
+                        }
+                    }
+
+                    if (midi.outputs.size > 0) {
+                        let outputs = midi.outputs.values();
+
+                        for (
+                            let output_it = outputs.next();
+                            output_it && !output_it.done;
+                            output_it = outputs.next()
+                        ) {
+                            let output = output_it.value;
+
+                            list.push(deviceInfo(output));
+                        }
+                    }
+
+                    const new_json = JSON.stringify(list);
+
+                    if (new_json !== devices_json) {
+                        devices_json = new_json;
+                        sendDevices();
+                    }
+                };
+
+                let connectionsNotification;
+
+                const showConnections = sticky => {
+                    //if(document.getElementById("Notification-MIDI-Connections"))
+                    //sticky = 1; // todo: instead,
+                    const inputs_ul = document.createElement("ul");
+
+                    if (midi.inputs.size > 0) {
+                        let inputs = midi.inputs.values();
+
+                        for (
+                            let input_it = inputs.next();
+                            input_it && !input_it.done;
+                            input_it = inputs.next()
+                        ) {
+                            const input = input_it.value;
+                            const li = document.createElement("li");
+
+                            li.connectionId = input.id;
+                            li.classList.add("connection");
+
+                            if (input.enabled) li.classList.add("enabled");
+                            li.textContent = input.name;
+
+                            li.addEventListener("click", evt => {
+                                const inputs = midi.inputs.values();
+
+                                for (
+                                    let input_it = inputs.next();
+                                    input_it && !input_it.done;
+                                    input_it = inputs.next()
+                                ) {
+                                    const input = input_it.value;
+
+                                    if (input.id === evt.target.connectionId) {
+                                        input.enabled = !input.enabled;
+                                        evt.target.classList.toggle("enabled");
+
+                                        // console.log("click", input);
+
+                                        updateDevices();
+
+                                        return;
                                     }
                                 }
+                            });
+
+                            if (gMidiVolumeTest) {
+                                const knob = document.createElement("canvas");
+
+                                mixin(knob, {
+                                    width: 16 * window.devicePixelRatio,
+                                    height: 16 * window.devicePixelRatio,
+                                    className: "knob"
+                                });
+
+                                li.appendChild(knob);
+
+                                knob = new Knob(
+                                    knob,
+                                    0,
+                                    2,
+                                    0.01,
+                                    input.volume,
+                                    "volume"
+                                );
+
+                                knob.canvas.style.width = "16px";
+                                knob.canvas.style.height = "16px";
+                                knob.canvas.style.float = "right";
+
+                                knob.on("change", k => {
+                                    input.volume = k.value;
+                                });
+
+                                knob.emit("change", knob);
                             }
+
+                            inputs_ul.appendChild(li);
                         }
+                    } else {
+                        inputs_ul.textContent = "(none)";
                     }
 
-                    function deviceInfo(dev) {
-                        return {
-                            type: dev.type,
-                            //id: dev.id,
-                            manufacturer: dev.manufacturer,
-                            name: dev.name,
-                            version: dev.version,
-                            //connection: dev.connection,
-                            //state: dev.state,
-                            enabled: dev.enabled,
-                            volume: dev.volume
-                        };
-                    }
+                    const outputs_ul = document.createElement("ul");
 
-                    function updateDevices() {
-                        const list = [];
+                    if (midi.outputs.size > 0) {
+                        const outputs = midi.outputs.values();
 
-                        if (midi.inputs.size > 0) {
-                            const inputs = midi.inputs.values();
+                        for (
+                            let output_it = outputs.next();
+                            output_it && !output_it.done;
+                            output_it = outputs.next()
+                        ) {
+                            const output = output_it.value;
+                            const li = document.createElement("li");
 
-                            for (
-                                let input_it = inputs.next();
-                                input_it && !input_it.done;
-                                input_it = inputs.next()
-                            ) {
-                                const input = input_it.value;
-                                list.push(deviceInfo(input));
-                            }
-                        }
+                            li.connectionId = output.id;
+                            li.classList.add("connection");
 
-                        if (midi.outputs.size > 0) {
-                            var outputs = midi.outputs.values();
-                            for (
-                                var output_it = outputs.next();
-                                output_it && !output_it.done;
-                                output_it = outputs.next()
-                            ) {
-                                var output = output_it.value;
-                                list.push(deviceInfo(output));
-                            }
-                        }
+                            if (output.enabled) li.classList.add("enabled");
 
-                        const new_json = JSON.stringify(list);
+                            li.textContent = output.name;
 
-                        if (new_json !== devices_json) {
-                            devices_json = new_json;
-                            sendDevices();
-                        }
-                    }
+                            li.addEventListener("click", evt => {
+                                const outputs = midi.outputs.values();
 
-                    function plug() {
-                        if (midi.inputs.size > 0) {
-                            var inputs = midi.inputs.values();
-                            for (
-                                var input_it = inputs.next();
-                                input_it && !input_it.done;
-                                input_it = inputs.next()
-                            ) {
-                                var input = input_it.value;
-                                //input.removeEventListener("midimessage", midimessagehandler);
-                                //input.addEventListener("midimessage", midimessagehandler);
-                                input.onmidimessage = midimessagehandler;
-                                if (input.enabled !== false) {
-                                    input.enabled = true;
-                                }
-                                if (typeof input.volume === "undefined") {
-                                    input.volume = 1.0;
-                                }
-                                // console.log("input", input);
-                            }
-                        }
-                        if (midi.outputs.size > 0) {
-                            var outputs = midi.outputs.values();
-                            for (
-                                var output_it = outputs.next();
-                                output_it && !output_it.done;
-                                output_it = outputs.next()
-                            ) {
-                                var output = output_it.value;
-                                //output.enabled = false; // edit: don't touch
-                                if (typeof output.volume === "undefined") {
-                                    output.volume = 1.0;
-                                }
-                                // console.log("output", output);
-                            }
-                            gMidiOutTest = function (note_name, vel, delay_ms) {
-                                var note_number =
-                                    MIDI_KEY_NAMES.indexOf(note_name);
-                                if (note_number == -1) return;
-                                note_number = note_number + 9 - MIDI_TRANSPOSE;
-
-                                var outputs = midi.outputs.values();
                                 for (
-                                    var output_it = outputs.next();
+                                    let output_it = outputs.next();
                                     output_it && !output_it.done;
                                     output_it = outputs.next()
                                 ) {
-                                    var output = output_it.value;
-                                    if (output.enabled) {
-                                        var v = vel;
-                                        if (output.volume !== undefined)
-                                            v *= output.volume;
-                                        output.send(
-                                            [0x90, note_number, v],
-                                            window.performance.now() + delay_ms
-                                        );
+                                    const output = output_it.value;
+
+                                    if (output.id === evt.target.connectionId) {
+                                        output.enabled = !output.enabled;
+                                        evt.target.classList.toggle("enabled");
+                                        // console.log("click", output);
+                                        updateDevices();
+                                        return;
                                     }
                                 }
-                            };
+                            });
+
+                            if (gMidiVolumeTest) {
+                                const knob = document.createElement("canvas");
+
+                                mixin(knob, {
+                                    width: 16 * window.devicePixelRatio,
+                                    height: 16 * window.devicePixelRatio,
+                                    className: "knob"
+                                });
+
+                                li.appendChild(knob);
+
+                                knob = new Knob(
+                                    knob,
+                                    0,
+                                    2,
+                                    0.01,
+                                    output.volume,
+                                    "volume"
+                                );
+
+                                knob.canvas.style.width = "16px";
+                                knob.canvas.style.height = "16px";
+                                knob.canvas.style.float = "right";
+
+                                knob.on("change", k => {
+                                    output.volume = k.value;
+                                });
+
+                                knob.emit("change", knob);
+                            }
+
+                            outputs_ul.appendChild(li);
                         }
-                        showConnections(false);
-                        updateDevices();
+                    } else {
+                        outputs_ul.textContent = "(none)";
                     }
 
-                    midi.addEventListener("statechange", function (evt) {
-                        if (evt instanceof MIDIConnectionEvent) {
-                            plug();
-                        }
+                    let div = document.createElement("div");
+                    let h1 = document.createElement("h1");
+
+                    h1.textContent = "Inputs";
+
+                    div.appendChild(h1);
+                    div.appendChild(inputs_ul);
+
+                    h1 = document.createElement("h1");
+                    h1.textContent = "Outputs";
+
+                    div.appendChild(h1);
+                    div.appendChild(outputs_ul);
+
+                    connectionsNotification = new Notification({
+                        id: "MIDI-Connections",
+                        title: "MIDI Connections",
+                        duration: sticky ? "-1" : "4500",
+                        html: div,
+                        target: "#midi-btn"
                     });
+                };
 
-                    plug();
+                const plug = () => {
+                    if (midi.inputs.size > 0) {
+                        const inputs = midi.inputs.values();
 
-                    var connectionsNotification;
+                        for (
+                            let input_it = inputs.next();
+                            input_it && !input_it.done;
+                            input_it = inputs.next()
+                        ) {
+                            const input = input_it.value;
 
-                    function showConnections(sticky) {
-                        //if(document.getElementById("Notification-MIDI-Connections"))
-                        //sticky = 1; // todo: instead,
-                        var inputs_ul = document.createElement("ul");
-                        if (midi.inputs.size > 0) {
-                            var inputs = midi.inputs.values();
-                            for (
-                                var input_it = inputs.next();
-                                input_it && !input_it.done;
-                                input_it = inputs.next()
-                            ) {
-                                var input = input_it.value;
-                                var li = document.createElement("li");
-                                li.connectionId = input.id;
-                                li.classList.add("connection");
-                                if (input.enabled) li.classList.add("enabled");
-                                li.textContent = input.name;
-                                li.addEventListener("click", function (evt) {
-                                    var inputs = midi.inputs.values();
-                                    for (
-                                        var input_it = inputs.next();
-                                        input_it && !input_it.done;
-                                        input_it = inputs.next()
-                                    ) {
-                                        var input = input_it.value;
-                                        if (
-                                            input.id === evt.target.connectionId
-                                        ) {
-                                            input.enabled = !input.enabled;
-                                            evt.target.classList.toggle(
-                                                "enabled"
-                                            );
-                                            console.log("click", input);
-                                            updateDevices();
-                                            return;
-                                        }
-                                    }
-                                });
-                                if (gMidiVolumeTest) {
-                                    var knob = document.createElement("canvas");
-                                    mixin(knob, {
-                                        width: 16 * window.devicePixelRatio,
-                                        height: 16 * window.devicePixelRatio,
-                                        className: "knob"
-                                    });
-                                    li.appendChild(knob);
-                                    knob = new Knob(
-                                        knob,
-                                        0,
-                                        2,
-                                        0.01,
-                                        input.volume,
-                                        "volume"
-                                    );
-                                    knob.canvas.style.width = "16px";
-                                    knob.canvas.style.height = "16px";
-                                    knob.canvas.style.float = "right";
-                                    knob.on("change", function (k) {
-                                        input.volume = k.value;
-                                    });
-                                    knob.emit("change", knob);
-                                }
-                                inputs_ul.appendChild(li);
+                            //input.removeEventListener("midimessage", midimessagehandler);
+                            //input.addEventListener("midimessage", midimessagehandler);
+
+                            input.onmidimessage = midimessagehandler;
+
+                            if (input.enabled !== false) {
+                                input.enabled = true;
                             }
-                        } else {
-                            inputs_ul.textContent = "(none)";
+
+                            if (typeof input.volume === "undefined") {
+                                input.volume = 1.0;
+                            }
+
+                            // console.log("input", input);
                         }
-                        var outputs_ul = document.createElement("ul");
-                        if (midi.outputs.size > 0) {
-                            var outputs = midi.outputs.values();
+                    }
+
+                    if (midi.outputs.size > 0) {
+                        const outputs = midi.outputs.values();
+
+                        for (
+                            let output_it = outputs.next();
+                            output_it && !output_it.done;
+                            output_it = outputs.next()
+                        ) {
+                            const output = output_it.value;
+
+                            //output.enabled = false; // edit: don't touch
+
+                            if (typeof output.volume === "undefined") {
+                                output.volume = 1.0;
+                            }
+
+                            // console.log("output", output);
+                        }
+
+                        gMidiOutTest = (note_name, vel, delay_ms) => {
+                            let note_number = MIDI_KEY_NAMES.indexOf(note_name);
+
+                            if (note_number == -1) return;
+
+                            note_number = note_number + 9 - MIDI_TRANSPOSE;
+
+                            const outputs = midi.outputs.values();
+
                             for (
-                                var output_it = outputs.next();
+                                let output_it = outputs.next();
                                 output_it && !output_it.done;
                                 output_it = outputs.next()
                             ) {
-                                var output = output_it.value;
-                                var li = document.createElement("li");
-                                li.connectionId = output.id;
-                                li.classList.add("connection");
-                                if (output.enabled) li.classList.add("enabled");
-                                li.textContent = output.name;
-                                li.addEventListener("click", function (evt) {
-                                    var outputs = midi.outputs.values();
-                                    for (
-                                        var output_it = outputs.next();
-                                        output_it && !output_it.done;
-                                        output_it = outputs.next()
-                                    ) {
-                                        var output = output_it.value;
-                                        if (
-                                            output.id ===
-                                            evt.target.connectionId
-                                        ) {
-                                            output.enabled = !output.enabled;
-                                            evt.target.classList.toggle(
-                                                "enabled"
-                                            );
-                                            console.log("click", output);
-                                            updateDevices();
-                                            return;
-                                        }
-                                    }
-                                });
-                                if (gMidiVolumeTest) {
-                                    var knob = document.createElement("canvas");
-                                    mixin(knob, {
-                                        width: 16 * window.devicePixelRatio,
-                                        height: 16 * window.devicePixelRatio,
-                                        className: "knob"
-                                    });
-                                    li.appendChild(knob);
-                                    knob = new Knob(
-                                        knob,
-                                        0,
-                                        2,
-                                        0.01,
-                                        output.volume,
-                                        "volume"
+                                const output = output_it.value;
+
+                                if (output.enabled) {
+                                    let v = vel;
+
+                                    if (output.volume !== undefined)
+                                        v *= output.volume;
+
+                                    output.send(
+                                        [0x90, note_number, v],
+                                        window.performance.now() + delay_ms
                                     );
-                                    knob.canvas.style.width = "16px";
-                                    knob.canvas.style.height = "16px";
-                                    knob.canvas.style.float = "right";
-                                    knob.on("change", function (k) {
-                                        output.volume = k.value;
-                                    });
-                                    knob.emit("change", knob);
                                 }
-                                outputs_ul.appendChild(li);
                             }
-                        } else {
-                            outputs_ul.textContent = "(none)";
-                        }
-
-                        let div = document.createElement("div");
-                        let h1 = document.createElement("h1");
-
-                        h1.textContent = "Inputs";
-                        div.appendChild(h1);
-                        div.appendChild(inputs_ul);
-                        h1 = document.createElement("h1");
-                        h1.textContent = "Outputs";
-                        div.appendChild(h1);
-                        div.appendChild(outputs_ul);
-                        connectionsNotification = new Notification({
-                            id: "MIDI-Connections",
-                            title: "MIDI Connections",
-                            duration: sticky ? "-1" : "4500",
-                            html: div,
-                            target: "#midi-btn"
-                        });
+                        };
                     }
+                    showConnections(false);
+                    updateDevices();
+                };
 
-                    document
-                        .getElementById("midi-btn")
-                        .addEventListener("click", function (evt) {
-                            if (
-                                !document.getElementById(
-                                    "Notification-MIDI-Connections"
-                                )
+                midi.addEventListener("statechange", evt => {
+                    if (evt instanceof MIDIConnectionEvent) {
+                        plug();
+                    }
+                });
+
+                plug();
+
+                document
+                    .getElementById("midi-btn")
+                    .addEventListener("click", evt => {
+                        if (
+                            !document.getElementById(
+                                "Notification-MIDI-Connections"
                             )
-                                showConnections(true);
-                            else {
-                                connectionsNotification.close();
-                            }
-                        });
-                },
-                function (err) {
-                    console.log(err);
-                }
-            );
-        }
-    })();
+                        )
+                            showConnections(true);
+                        else {
+                            connectionsNotification.close();
+                        }
+                    });
+            },
+            err => {
+                console.log(err);
+            }
+        );
+    }
 
     // more button
-    (function () {
-        var loaded = false;
-        setTimeout(function () {
-            $("#social").fadeIn(250);
-            $("#more-button").click(function () {
-                openModal("#more");
-                if (loaded === false) {
-                    $.get("/more.html").success(function (data) {
-                        loaded = true;
-                        var items = $(data).find(".item");
-                        if (items.length > 0) {
-                            $("#more .items").append(items);
-                        }
-                        try {
-                            var ele = document.getElementById("email");
-                            var email = ele
-                                .getAttribute("obscured")
-                                .replace(/[a-zA-Z]/g, function (c) {
-                                    return String.fromCharCode(
-                                        (c <= "Z" ? 90 : 122) >=
-                                            (c = c.charCodeAt(0) + 13)
-                                            ? c
-                                            : c - 26
-                                    );
-                                });
-                            ele.href = "mailto:" + email;
-                            ele.textContent = email;
-                        } catch (e) {}
-                    });
-                }
-            });
-        }, 5000);
-    })();
+    let loaded = false;
+
+    setTimeout(() => {
+        $("#social").fadeIn(250);
+        $("#more-button").click(() => {
+            openModal("#more");
+
+            if (loaded === false) {
+                $.get("/more.html").success(data => {
+                    loaded = true;
+
+                    const items = $(data).find(".item");
+
+                    if (items.length > 0) {
+                        $("#more .items").append(items);
+                    }
+
+                    try {
+                        const ele = document.getElementById("email");
+                        const email = ele
+                            .getAttribute("obscured")
+                            .replace(/[a-zA-Z]/g, c => {
+                                return String.fromCharCode(
+                                    (c <= "Z" ? 90 : 122) >=
+                                        (c = c.charCodeAt(0) + 13)
+                                        ? c
+                                        : c - 26
+                                );
+                            });
+
+                        ele.href = "mailto:" + email;
+                        ele.textContent = email;
+                    } catch (e) {}
+                });
+            }
+        });
+    }, 5000);
 
     // API
     window.MPP = {
@@ -3534,33 +3584,43 @@ $(() => {
     };
 
     // record mp3
-    (function () {
-        var button = document.querySelector("#record-btn");
-        var audio = MPP.piano.audio;
-        var context = audio.context;
-        var encoder_sample_rate = 44100;
-        var encoder_kbps = 128;
-        var encoder = null;
-        var scriptProcessorNode = context.createScriptProcessor(4096, 2, 2);
-        var recording = false;
-        var recording_start_time = 0;
-        var mp3_buffer = [];
-        button.addEventListener("click", function (evt) {
-            if (!recording) {
+    (() => {
+        let mp3button = document.querySelector("#record-btn");
+        let mp3audio = MPP.piano.audio;
+        let mp3context = mp3audio.context;
+        // let mp3encoder_sample_rate = 44100;
+        let mp3encoder_sample_rate = 48000;
+        let mp3encoder_kbps = 128;
+        let mp3encoder = null;
+        let mp3scriptProcessorNode = mp3context.createScriptProcessor(
+            4096,
+            2,
+            2
+        );
+        let mp3recording = false;
+        let mp3recording_start_time = 0;
+        let mp3_buffer = [];
+
+        mp3button.addEventListener("click", evt => {
+            if (!mp3recording) {
                 // start recording
                 mp3_buffer = [];
-                encoder = new lamejs.Mp3Encoder(
+                mp3encoder = new lamejs.Mp3Encoder(
                     2,
-                    encoder_sample_rate,
-                    encoder_kbps
+                    mp3encoder_sample_rate,
+                    mp3encoder_kbps
                 );
-                scriptProcessorNode.onaudioprocess = onAudioProcess;
-                audio.masterGain.connect(scriptProcessorNode);
-                scriptProcessorNode.connect(context.destination);
-                recording_start_time = Date.now();
-                recording = true;
-                button.textContent = "Stop Recording";
-                button.classList.add("stuck");
+
+                mp3scriptProcessorNode.onaudioprocess = onAudioProcess;
+                mp3audio.masterGain.connect(mp3scriptProcessorNode);
+                mp3scriptProcessorNode.connect(mp3context.destination);
+
+                mp3recording_start_time = Date.now();
+                mp3recording = true;
+
+                mp3button.textContent = "Stop Recording";
+                mp3button.classList.add("stuck");
+
                 new Notification({
                     id: "mp3",
                     title: "Recording MP3...",
@@ -3569,16 +3629,22 @@ $(() => {
                 });
             } else {
                 // stop recording
-                var mp3buf = encoder.flush();
+                const mp3buf = mp3encoder.flush();
+
                 mp3_buffer.push(mp3buf);
-                var blob = new Blob(mp3_buffer, { type: "audio/mp3" });
-                var url = URL.createObjectURL(blob);
-                scriptProcessorNode.onaudioprocess = null;
-                audio.masterGain.disconnect(scriptProcessorNode);
-                scriptProcessorNode.disconnect(context.destination);
-                recording = false;
-                button.textContent = "Record MP3";
-                button.classList.remove("stuck");
+
+                const blob = new Blob(mp3_buffer, { type: "audio/mp3" });
+                const url = URL.createObjectURL(blob);
+
+                mp3scriptProcessorNode.onaudioprocess = null;
+                mp3audio.masterGain.disconnect(mp3scriptProcessorNode);
+                mp3scriptProcessorNode.disconnect(mp3context.destination);
+
+                mp3recording = false;
+
+                mp3button.textContent = "Record MP3";
+                mp3button.classList.remove("stuck");
+
                 new Notification({
                     id: "mp3",
                     title: "MP3 recording finished",
@@ -3590,62 +3656,76 @@ $(() => {
                 });
             }
         });
-        function onAudioProcess(evt) {
-            var inputL = evt.inputBuffer.getChannelData(0);
-            var inputR = evt.inputBuffer.getChannelData(1);
-            var mp3buf = encoder.encodeBuffer(
+
+        const onAudioProcess = evt => {
+            const inputL = evt.inputBuffer.getChannelData(0);
+            const inputR = evt.inputBuffer.getChannelData(1);
+
+            const mp3buf = mp3encoder.encodeBuffer(
                 convert16(inputL),
                 convert16(inputR)
             );
+
             mp3_buffer.push(mp3buf);
-        }
-        function convert16(samples) {
-            var len = samples.length;
-            var result = new Int16Array(len);
-            for (var i = 0; i < len; i++) {
+        };
+
+        const convert16 = samples => {
+            const len = samples.length;
+            const result = new Int16Array(len);
+
+            for (let i = 0; i < len; i++) {
                 result[i] = 0x8000 * samples[i];
             }
+
             return result;
-        }
+        };
     })();
 
     // synth
-    var enableSynth = false;
-    var audio = gPiano.audio;
-    var context = gPiano.audio.context;
-    var synth_gain = context.createGain();
+    let enableSynth = false;
+    let audio = gPiano.audio;
+    let context = gPiano.audio.context;
+    let synth_gain = context.createGain();
     synth_gain.gain.value = 0.05;
     synth_gain.connect(audio.synthGain);
 
-    var osc_types = ["sine", "square", "sawtooth", "triangle"];
-    var osc_type_index = 1;
+    let osc_types = ["sine", "square", "sawtooth", "triangle"];
+    let osc_type_index = 1;
 
-    var osc1_type = "square";
-    var osc1_attack = 0;
-    var osc1_decay = 0.2;
-    var osc1_sustain = 0.5;
-    var osc1_release = 2.0;
+    let osc1_type = "square";
+    let osc1_attack = 0;
+    let osc1_decay = 0.2;
+    let osc1_sustain = 0.5;
+    let osc1_release = 2.0;
 
     class synthVoice {
         constructor(note_name, time) {
-            var note_number = MIDI_KEY_NAMES.indexOf(note_name);
+            let note_number = MIDI_KEY_NAMES.indexOf(note_name);
             note_number = note_number + 9 - MIDI_TRANSPOSE;
-            var freq = Math.pow(2, (note_number - 69) / 12) * 440.0;
+            const freq = Math.pow(2, (note_number - 69) / 12) * 440.0;
+
             this.osc = context.createOscillator();
             this.osc.type = osc1_type;
             this.osc.frequency.value = freq;
+
             this.gain = context.createGain();
             this.gain.gain.value = 0;
+
             this.osc.connect(this.gain);
+
             this.gain.connect(synth_gain);
+
             this.osc.start(time);
+
             this.gain.gain.setValueAtTime(0, time);
             this.gain.gain.linearRampToValueAtTime(1, time + osc1_attack);
+
             this.gain.gain.linearRampToValueAtTime(
                 osc1_sustain,
                 time + osc1_attack + osc1_decay
             );
         }
+
         stop(time) {
             //this.gain.gain.setValueAtTime(osc1_sustain, time);
             this.gain.gain.linearRampToValueAtTime(0, time + osc1_release);
@@ -3653,180 +3733,196 @@ $(() => {
         }
     }
 
-    (function () {
-        var button = document.getElementById("synth-btn");
-        var notification;
+    let synthButton = document.getElementById("synth-btn");
+    let synthNotification;
 
-        button.addEventListener("click", function () {
-            if (notification) {
-                notification.close();
-            } else {
-                showSynth();
-            }
-        });
+    synthButton.addEventListener("click", () => {
+        if (synthNotification) {
+            synthNotification.close();
+        } else {
+            showSynth();
+        }
+    });
 
-        function showSynth() {
-            var html = document.createElement("div");
+    const showSynth = () => {
+        const html = document.createElement("div");
 
-            // on/off button
-            (function () {
-                var button = document.createElement("input");
-                mixin(button, {
-                    type: "button",
-                    value: "ON/OFF",
-                    className: enableSynth ? "switched-on" : "switched-off"
-                });
-                button.addEventListener("click", function (evt) {
-                    enableSynth = !enableSynth;
-                    button.className = enableSynth
-                        ? "switched-on"
-                        : "switched-off";
-                    if (!enableSynth) {
-                        // stop all
-                        for (var i in audio.playings) {
-                            if (!audio.playings.hasOwnProperty(i)) continue;
-                            var playing = audio.playings[i];
-                            if (playing && playing.voice) {
-                                playing.voice.osc.stop();
-                                playing.voice = undefined;
-                            }
+        // on/off button
+        (() => {
+            const button = document.createElement("input");
+
+            mixin(button, {
+                type: "button",
+                value: "ON/OFF",
+                className: enableSynth ? "switched-on" : "switched-off"
+            });
+
+            button.addEventListener("click", evt => {
+                enableSynth = !enableSynth;
+                button.className = enableSynth ? "switched-on" : "switched-off";
+
+                if (!enableSynth) {
+                    // stop all
+                    for (const playing of Object.values(audio.playings)) {
+                        if (playing && playing.voice) {
+                            playing.voice.osc.stop();
+                            playing.voice = undefined;
                         }
                     }
-                });
-                html.appendChild(button);
-            })();
-
-            // mix
-            var knob = document.createElement("canvas");
-            mixin(knob, {
-                width: 32 * window.devicePixelRatio,
-                height: 32 * window.devicePixelRatio,
-                className: "knob"
+                }
             });
-            html.appendChild(knob);
-            knob = new Knob(knob, 0, 100, 0.1, 50, "mix", "%");
-            knob.canvas.style.width = "32px";
-            knob.canvas.style.height = "32px";
-            knob.on("change", function (k) {
-                var mix = k.value / 100;
-                audio.pianoGain.gain.value = 1 - mix;
-                audio.synthGain.gain.value = mix;
-            });
-            knob.emit("change", knob);
 
-            // osc1 type
-            (function () {
+            html.appendChild(button);
+        })();
+
+        // mix
+        let knob = document.createElement("canvas");
+
+        mixin(knob, {
+            width: 32 * window.devicePixelRatio,
+            height: 32 * window.devicePixelRatio,
+            className: "knob"
+        });
+
+        html.appendChild(knob);
+
+        knob = new Knob(knob, 0, 100, 0.1, 50, "mix", "%");
+
+        knob.canvas.style.width = "32px";
+        knob.canvas.style.height = "32px";
+
+        knob.on("change", k => {
+            const mix = k.value / 100;
+
+            audio.pianoGain.gain.value = 1 - mix;
+            audio.synthGain.gain.value = mix;
+        });
+
+        knob.emit("change", knob);
+
+        // osc1 type
+        (() => {
+            osc1_type = osc_types[osc_type_index];
+            const button = document.createElement("input");
+
+            mixin(button, {
+                type: "button",
+                value: osc_types[osc_type_index]
+            });
+
+            button.addEventListener("click", evt => {
+                if (++osc_type_index >= osc_types.length) osc_type_index = 0;
                 osc1_type = osc_types[osc_type_index];
-                var button = document.createElement("input");
-                mixin(button, {
-                    type: "button",
-                    value: osc_types[osc_type_index]
-                });
-                button.addEventListener("click", function (evt) {
-                    if (++osc_type_index >= osc_types.length)
-                        osc_type_index = 0;
-                    osc1_type = osc_types[osc_type_index];
-                    button.value = osc1_type;
-                });
-                html.appendChild(button);
-            })();
+                button.value = osc1_type;
+            });
 
-            // osc1 attack
-            var knob = document.createElement("canvas");
-            mixin(knob, {
-                width: 32 * window.devicePixelRatio,
-                height: 32 * window.devicePixelRatio,
-                className: "knob"
-            });
-            html.appendChild(knob);
-            knob = new Knob(knob, 0, 1, 0.001, osc1_attack, "osc1 attack", "s");
-            knob.canvas.style.width = "32px";
-            knob.canvas.style.height = "32px";
-            knob.on("change", function (k) {
-                osc1_attack = k.value;
-            });
-            knob.emit("change", knob);
+            html.appendChild(button);
+        })();
 
-            // osc1 decay
-            var knob = document.createElement("canvas");
-            mixin(knob, {
-                width: 32 * window.devicePixelRatio,
-                height: 32 * window.devicePixelRatio,
-                className: "knob"
-            });
-            html.appendChild(knob);
-            knob = new Knob(knob, 0, 2, 0.001, osc1_decay, "osc1 decay", "s");
-            knob.canvas.style.width = "32px";
-            knob.canvas.style.height = "32px";
-            knob.on("change", function (k) {
-                osc1_decay = k.value;
-            });
-            knob.emit("change", knob);
+        // osc1 attack
+        knob = document.createElement("canvas");
 
-            var knob = document.createElement("canvas");
-            mixin(knob, {
-                width: 32 * window.devicePixelRatio,
-                height: 32 * window.devicePixelRatio,
-                className: "knob"
-            });
-            html.appendChild(knob);
-            knob = new Knob(
-                knob,
-                0,
-                1,
-                0.001,
-                osc1_sustain,
-                "osc1 sustain",
-                "x"
-            );
-            knob.canvas.style.width = "32px";
-            knob.canvas.style.height = "32px";
-            knob.on("change", function (k) {
-                osc1_sustain = k.value;
-            });
-            knob.emit("change", knob);
+        mixin(knob, {
+            width: 32 * window.devicePixelRatio,
+            height: 32 * window.devicePixelRatio,
+            className: "knob"
+        });
 
-            // osc1 release
-            var knob = document.createElement("canvas");
-            mixin(knob, {
-                width: 32 * window.devicePixelRatio,
-                height: 32 * window.devicePixelRatio,
-                className: "knob"
-            });
-            html.appendChild(knob);
-            knob = new Knob(
-                knob,
-                0,
-                2,
-                0.001,
-                osc1_release,
-                "osc1 release",
-                "s"
-            );
-            knob.canvas.style.width = "32px";
-            knob.canvas.style.height = "32px";
-            knob.on("change", function (k) {
-                osc1_release = k.value;
-            });
-            knob.emit("change", knob);
+        html.appendChild(knob);
 
-            let div = document.createElement("div");
-            div.innerHTML =
-                "<br><br><br><br><center>this space intentionally left blank</center><br><br><br><br>";
-            html.appendChild(div);
+        knob = new Knob(knob, 0, 1, 0.001, osc1_attack, "osc1 attack", "s");
 
-            // notification
-            notification = new Notification({
-                title: "Synthesize",
-                html: html,
-                duration: -1,
-                target: "#synth-btn"
-            });
-            notification.on("close", function () {
-                var tip = document.getElementById("tooltip");
-                if (tip) tip.parentNode.removeChild(tip);
-                notification = null;
-            });
-        }
-    })();
+        knob.canvas.style.width = "32px";
+        knob.canvas.style.height = "32px";
+
+        knob.on("change", k => {
+            osc1_attack = k.value;
+        });
+
+        knob.emit("change", knob);
+
+        // osc1 decay
+        knob = document.createElement("canvas");
+        mixin(knob, {
+            width: 32 * window.devicePixelRatio,
+            height: 32 * window.devicePixelRatio,
+            className: "knob"
+        });
+
+        html.appendChild(knob);
+
+        knob = new Knob(knob, 0, 2, 0.001, osc1_decay, "osc1 decay", "s");
+
+        knob.canvas.style.width = "32px";
+        knob.canvas.style.height = "32px";
+
+        knob.on("change", k => {
+            osc1_decay = k.value;
+        });
+        knob.emit("change", knob);
+
+        knob = document.createElement("canvas");
+
+        mixin(knob, {
+            width: 32 * window.devicePixelRatio,
+            height: 32 * window.devicePixelRatio,
+            className: "knob"
+        });
+
+        html.appendChild(knob);
+
+        knob = new Knob(knob, 0, 1, 0.001, osc1_sustain, "osc1 sustain", "x");
+
+        knob.canvas.style.width = "32px";
+        knob.canvas.style.height = "32px";
+
+        knob.on("change", k => {
+            osc1_sustain = k.value;
+        });
+
+        knob.emit("change", knob);
+
+        // osc1 release
+        knob = document.createElement("canvas");
+
+        mixin(knob, {
+            width: 32 * window.devicePixelRatio,
+            height: 32 * window.devicePixelRatio,
+            className: "knob"
+        });
+
+        html.appendChild(knob);
+
+        knob = new Knob(knob, 0, 2, 0.001, osc1_release, "osc1 release", "s");
+
+        knob.canvas.style.width = "32px";
+        knob.canvas.style.height = "32px";
+
+        knob.on("change", k => {
+            osc1_release = k.value;
+        });
+
+        knob.emit("change", knob);
+
+        const div = document.createElement("div");
+        div.innerHTML =
+            "<br><br><br><br><center>this space intentionally left blank</center><br><br><br><br>";
+        html.appendChild(div);
+
+        // notification
+        synthNotification = new Notification({
+            title: "Synthesize",
+            html: html,
+            duration: -1,
+            target: "#synth-btn"
+        });
+
+        synthNotification.on("close", () => {
+            const tip = document.getElementById("tooltip");
+
+            if (tip) tip.parentNode.removeChild(tip);
+
+            synthNotification = null;
+        });
+    };
 });
