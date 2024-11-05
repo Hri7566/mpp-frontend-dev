@@ -11,7 +11,7 @@
         {% if usersConfig.enableTags %}
         <link rel="stylesheet" href="/tags.css" />
         {% endif %} {% if config.topButtons == "mppnet" %}
-        <link rel="stylesheet" href="/top-button.css" />
+        <link rel="stylesheet" href="/mppnet-top.css" />
         {% endif %}
     </head>
     <body>
@@ -78,11 +78,19 @@
             </button>
         </a>
         {% elif config.topButtons == "git-links" %}
-        <a href="https://git.hri7566.info/Hri7566/mpp-server-dev2" style="position: absolute; right: 0; top: 0; font-size: 12pt;"
+        <a
+            href="https://git.hri7566.info/Hri7566/mpp-server-dev2"
+            target="_blank"
+            style="position: absolute; right: 150px; top: 4px; font-size: 12pt"
             >Server Source Code</a
         >
-        {% endif %}
-
+        <a
+            href="https://github.com/Hri7566/mpp-server-dev2"
+            target="_blank"
+            style="position: absolute; right: 4px; top: 4px; font-size: 12pt"
+            >(GitHub mirror)</a
+        >
+        {% endif %} {% if not config.disableChat %}
         <div id="chat">
             <ul></ul>
             <input
@@ -91,6 +99,7 @@
                 maxlength="512"
             />
         </div>
+        {% endif %}
 
         <div id="room-notice"></div>
 
