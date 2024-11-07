@@ -1126,7 +1126,7 @@ $(() => {
         loadPack(pack, f) {
             pack = this.packs.find(p => p.name === pack);
 
-            if (typeof pack === "string") {
+            if (typeof pack !== "object") {
                 console.warn(
                     "Sound pack does not exist! Loading default pack..."
                 );
@@ -2431,7 +2431,7 @@ $(() => {
             super();
 
             if (this instanceof Notification === false) throw "yeet";
-            EventEmitter.call(this);
+            //EventEmitter.call(this);
 
             par = par || {};
 
