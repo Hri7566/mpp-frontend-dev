@@ -3962,33 +3962,6 @@ $(() => {
                 <div class="snowflake">
                     ❄
                 </div>
-                <div class="snowflake">
-                    ❄
-                </div>
-                <div class="snowflake">
-                    ❅
-                </div>
-                <div class="snowflake">
-                    ❄
-                </div>
-                <div class="snowflake">
-                    ❅
-                </div>
-                <div class="snowflake">
-                    ❄
-                </div>
-                <div class="snowflake">
-                    ❆
-                </div>
-                <div class="snowflake">
-                    ❄
-                </div>
-                <div class="snowflake">
-                    ❆
-                </div>
-                <div class="snowflake">
-                    ❅
-                </div>
             </div>
             <link rel="stylesheet" href="/snowflakes.css" />`);
 
