@@ -2942,6 +2942,8 @@ $(() => {
 
     ////////////////////////////////////////////////////////////////
 
+    let gShouldFadeOutChatOnNextBlur = true;
+
     const chat = (() => {
         gClient.on("ch", msg => {
             if (msg.ch.settings.chat) {
@@ -2974,6 +2976,7 @@ $(() => {
             $("#chat").addClass("chatting");
 
             chat.scrollToBottom();
+            chat.fadeIn();
         });
 
         /*$("#chat input").on("blur", evt => {
@@ -3072,6 +3075,12 @@ $(() => {
                     chat.scrollToBottom();
 
                     captureKeyboard();
+
+                    gShouldFadeOutChatOnNextBlur = true;
+
+                    setTimeout(() => {
+                        if (gShouldFadeOutChatOnNextBlur === true) chat.fadeOut();
+                    }, 90000);
                 }
             },
 
@@ -3116,6 +3125,17 @@ $(() => {
                     )
                         chat.scrollToBottom();
                 }
+
+                gShouldFadeOutChatOnNextBlur = false;
+                chat.fadeIn();
+            },
+            
+            fadeIn: (d = 100) => {
+                $("#chat ul").fadeTo(d, 1);
+            },
+
+            fadeOut: (d = 750) => {
+                $("#chat ul").fadeTo(1000, 0.2);
             }
         };
     })();
