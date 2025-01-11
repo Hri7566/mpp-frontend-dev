@@ -3174,7 +3174,7 @@ $(() => {
                     const channel = evt.data[0] & 0xf;
                     const cmd = evt.data[0] >> 4;
                     const note_number = evt.data[1];
-                    const vel = evt.data[2];
+                    let vel = evt.data[2];
 
                     //console.log(channel, cmd, note_number, vel);
                     if (cmd == 8 || (cmd == 9 && vel == 0)) {
