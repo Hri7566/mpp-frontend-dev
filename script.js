@@ -3079,7 +3079,8 @@ $(() => {
                     gShouldFadeOutChatOnNextBlur = true;
 
                     setTimeout(() => {
-                        if (gShouldFadeOutChatOnNextBlur === true) chat.fadeOut();
+                        if (gShouldFadeOutChatOnNextBlur === true)
+                            chat.fadeOut();
                     }, 90000);
                 }
             },
@@ -3129,7 +3130,7 @@ $(() => {
                 gShouldFadeOutChatOnNextBlur = false;
                 chat.fadeIn();
             },
-            
+
             fadeIn: (d = 100) => {
                 $("#chat ul").fadeTo(d, 1);
             },
@@ -3948,6 +3949,7 @@ $(() => {
 
     // snowflakes
     (() => {
+        /*
         if (!configs.config.winter) return;
 
         const snow = $(`
@@ -3986,5 +3988,28 @@ $(() => {
             <link rel="stylesheet" href="/snowflakes.css" />`);
 
         $(document.body).prepend(snow);
+        */
+
+        (async () => {
+            const snow = $(`<div id="tsparticles></div>`);
+
+            $(document.body).prepend(snow);
+
+            await tsParticles.load("tsparticles", {
+                preset: "snow",
+                particles: {
+                    size: {
+                        random: true,
+                        value: 3
+                    },
+                    number: {
+                        value: 250
+                    }
+                },
+                background: {
+                    color: "transparent"
+                }
+            });
+        })();
     })();
 });
