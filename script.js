@@ -3132,11 +3132,15 @@ $(() => {
             },
 
             fadeIn: (d = 100) => {
-                $("#chat ul").fadeTo(d, 1);
+                if (configs.config.fadeChat) {
+                    $("#chat ul").fadeTo(d, 1);
+                }
             },
 
             fadeOut: (d = 750) => {
-                $("#chat ul").fadeTo(1000, 0.2);
+                if (configs.config.fadeChat) {
+                    $("#chat ul").fadeTo(1000, 0.2);
+                }
             }
         };
     })();
