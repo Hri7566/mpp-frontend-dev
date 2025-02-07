@@ -3949,46 +3949,7 @@ $(() => {
 
     // snowflakes
     (() => {
-        /*
         if (!configs.config.winter) return;
-
-        const snow = $(`
-            <div class="snowflakes" aria-hidden="true" translated>
-                <div class="snowflake">
-                    ❅
-                </div>
-                <div class="snowflake">
-                    ❅
-                </div>
-                <div class="snowflake">
-                    ❆
-                </div>
-                <div class="snowflake">
-                    ❄
-                </div>
-                <div class="snowflake">
-                    ❅
-                </div>
-                <div class="snowflake">
-                    ❆
-                </div>
-                <div class="snowflake">
-                    ❄
-                </div>
-                <div class="snowflake">
-                    ❅
-                </div>
-                <div class="snowflake">
-                    ❆
-                </div>
-                <div class="snowflake">
-                    ❄
-                </div>
-            </div>
-            <link rel="stylesheet" href="/snowflakes.css" />`);
-
-        $(document.body).prepend(snow);
-        */
 
         (async () => {
             const snow = $(`<div id="tsparticles></div>`);
