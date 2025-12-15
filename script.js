@@ -1596,7 +1596,6 @@ $(() => {
 
         if (part.tag) {
             if (configs.usersConfig.enableTags) {
-                console.log(part.tag);
                 const tag = document.createElement("div");
                 $(tag).addClass("nametag");
                 $(tag).text(part.tag.text);
