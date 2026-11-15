@@ -57,6 +57,9 @@ class Client extends EventEmitter {
 
     start(enableTokens = true, enableChallenge = true) {
         this.canConnect = true;
+        // Remembered so reconnects use the same options
+        this.enableTokens = enableTokens;
+        this.enableChallenge = enableChallenge;
         if (!this.connectionTime) {
             this.connect(enableTokens, enableChallenge);
         }
@@ -67,7 +70,10 @@ class Client extends EventEmitter {
         this.ws.close();
     }
 
-    connect(enableTokens, enableChallenge) {
+    connect(
+        enableTokens = this.enableTokens,
+        enableChallenge = this.enableChallenge
+    ) {
         if (
             !this.canConnect ||
             !this.isSupported() ||
