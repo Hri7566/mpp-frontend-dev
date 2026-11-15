@@ -1,6 +1,127 @@
 // 钢琴
 
 $(() => {
+    /**
+     * CSS transition replacements for jQuery's fadeIn/fadeOut/fadeTo.
+     * jQuery animates by setting inline styles from JS on every frame;
+     * these hand the animation to the browser instead.
+     *
+     * Each accepts an element, a jQuery object or a selector.
+     * Starting a new fade on an element cancels the one already running.
+     */
+    const fx = (() => {
+        const pending = new WeakMap(); // element -> timeout of running fade
+
+        const elementsOf = target => {
+            if (!target) return [];
+            if (target instanceof Element) return [target];
+            return $(target).get();
+        };
+
+        const isHidden = el => getComputedStyle(el).display === "none";
+
+        const cancel = el => {
+            clearTimeout(pending.get(el));
+            pending.delete(el);
+        };
+
+        const finish = (el, ms, done) => {
+            pending.set(
+                el,
+                setTimeout(() => {
+                    pending.delete(el);
+                    el.style.transition = "";
+                    done();
+                }, ms)
+            );
+        };
+
+        // Start a transition from the current opacity to a new one
+        const transitionOpacity = (el, ms, to) => {
+            el.style.opacity = getComputedStyle(el).opacity;
+            el.style.transition = "none";
+            void el.offsetWidth; // apply the start value before transitioning
+            el.style.transition = `opacity ${ms}ms`;
+            el.style.opacity = to;
+        };
+
+        // Make a hidden element display again (like jQuery, remember what it was)
+        const show = el => {
+            el.style.display = el.dataset.fxDisplay || "";
+            if (isHidden(el)) el.style.display = "block";
+        };
+
+        const fadeIn = (target, ms = 400, callback) => {
+            const els = elementsOf(target);
+            if (els.length === 0 && callback) callback();
+
+            for (const el of els) {
+                cancel(el);
+
+                if (isHidden(el)) {
+                    el.style.opacity = "0";
+                    show(el);
+                } else if (getComputedStyle(el).opacity === "1") {
+                    el.style.opacity = "";
+                    if (callback) callback.call(el);
+                    continue;
+                }
+
+                transitionOpacity(el, ms, "1");
+                finish(el, ms, () => {
+                    el.style.opacity = "";
+                    if (callback) callback.call(el);
+                });
+            }
+        };
+
+        const fadeOut = (target, ms = 400, callback) => {
+            const els = elementsOf(target);
+            if (els.length === 0 && callback) callback();
+
+            for (const el of els) {
+                cancel(el);
+
+                if (isHidden(el)) {
+                    if (callback) callback.call(el);
+                    continue;
+                }
+
+                transitionOpacity(el, ms, "0");
+                finish(el, ms, () => {
+                    const display = getComputedStyle(el).display;
+                    if (display !== "none") el.dataset.fxDisplay = display;
+                    el.style.display = "none";
+                    el.style.opacity = "";
+                    if (callback) callback.call(el);
+                });
+            }
+        };
+
+        const fadeTo = (target, ms = 400, opacity = 1) => {
+            for (const el of elementsOf(target)) {
+                cancel(el);
+                if (isHidden(el)) {
+                    el.style.opacity = "0";
+                    show(el);
+                }
+                transitionOpacity(el, ms, String(opacity));
+                finish(el, ms, () => {});
+            }
+        };
+
+        /** Cancel any running fade and leave the element as it is now */
+        const stop = target => {
+            for (const el of elementsOf(target)) {
+                cancel(el);
+                el.style.transition = "";
+                el.style.opacity = "";
+            }
+        };
+
+        return { fadeIn, fadeOut, fadeTo, stop };
+    })();
+
     const test_mode =
         window.location.hash &&
         window.location.hash.match(/^(?:#.+)*#test(?:#.+)*$/i);
@@ -1498,8 +1619,6 @@ $(() => {
         div.style.display = "none";
         part.nameDiv = $("#names")[0].appendChild(div);
 
-        $(part.nameDiv).fadeIn(2000);
-
         if (part.tag) {
             if (configs.usersConfig.enableTags) {
                 // console.log(part.tag);
@@ -1546,7 +1665,16 @@ $(() => {
             else return 0;
         });
 
-        $("#names").html(arr);
+        // Only move names that are out of place. Re-inserting an element
+        // cancels its CSS fade, so don't rebuild the whole list every time.
+        const namesEl = $("#names")[0];
+        arr.each((i, el) => {
+            if (namesEl.children[i] !== el)
+                namesEl.insertBefore(el, namesEl.children[i] || null);
+        });
+
+        // Fade in after sorting, once the name is where it will stay
+        fx.fadeIn(part.nameDiv, 2000);
 
         // add cursorDiv
         if (gClient.participantId !== part.id || gSeeOwnCursor) {
@@ -1556,7 +1684,7 @@ $(() => {
             cursorDiv.style.display = "none";
             part.cursorDiv = $("#cursors")[0].appendChild(cursorDiv);
 
-            $(part.cursorDiv).fadeIn(2000);
+            fx.fadeIn(part.cursorDiv, 2000);
 
             let cursorNameDiv = document.createElement("div");
 
@@ -1575,9 +1703,9 @@ $(() => {
         const nd = $(part.nameDiv);
         const cd = $(part.cursorDiv);
 
-        cd.fadeOut(2000);
+        fx.fadeOut(cd, 2000);
 
-        nd.fadeOut(2000, () => {
+        fx.fadeOut(nd, 2000, () => {
             nd.remove();
             cd.remove();
             part.nameDiv = undefined;
@@ -1663,6 +1791,7 @@ $(() => {
 
     const jqcountdown = $("<span></span>").appendTo(jqcrown);
     let countdown_interval;
+    let crown_land_timeout;
 
     jqcrown.click(() => {
         gClient.sendArray([{ m: "chown", id: gClient.participantId }]);
@@ -1677,7 +1806,12 @@ $(() => {
                     crown.time + 15000 - gClient.serverTimeOffset;
 
                 jqcountdown.text("");
+                fx.stop(jqcrown);
                 jqcrown.show();
+
+                // Cancel a landing animation that's still running
+                clearTimeout(crown_land_timeout);
+                jqcrown.css("transition", "none").removeClass("spin");
 
                 if (land_time - Date.now() <= 0) {
                     jqcrown.css({
@@ -1691,17 +1825,18 @@ $(() => {
                     });
 
                     jqcrown.addClass("spin");
-                    jqcrown.animate(
-                        {
-                            left: crown.endPos.x + "%",
-                            top: crown.endPos.y + "%"
-                        },
-                        2000,
-                        "linear",
-                        () => {
-                            jqcrown.removeClass("spin");
-                        }
-                    );
+
+                    // Apply the start position, then let CSS move it
+                    void jqcrown[0].offsetWidth;
+                    jqcrown.css({
+                        transition: "left 2000ms linear, top 2000ms linear",
+                        left: crown.endPos.x + "%",
+                        top: crown.endPos.y + "%"
+                    });
+
+                    crown_land_timeout = setTimeout(() => {
+                        jqcrown.css("transition", "").removeClass("spin");
+                    }, 2000);
                 }
 
                 clearInterval(countdown_interval);
@@ -1721,15 +1856,17 @@ $(() => {
                     }
                 }, 1000);
             } else {
+                fx.stop(jqcrown);
                 jqcrown.hide();
             }
         } else {
+            fx.stop(jqcrown);
             jqcrown.hide();
         }
     });
 
     gClient.on("disconnect", () => {
-        jqcrown.fadeOut(2000);
+        fx.fadeOut(jqcrown, 2000);
     });
 
     // Playing notes
@@ -1904,14 +2041,14 @@ $(() => {
         if (has_notice) {
             notice_div.html(notice);
 
-            if (notice_div.is(":hidden")) notice_div.fadeIn(1000);
+            if (notice_div.is(":hidden")) fx.fadeIn(notice_div, 1000);
         } else {
-            if (notice_div.is(":visible")) notice_div.fadeOut(1000);
+            if (notice_div.is(":visible")) fx.fadeOut(notice_div, 1000);
         }
     });
 
     gClient.on("disconnect", () => {
-        $("#room-notice").fadeOut(1000);
+        fx.fadeOut("#room-notice", 1000);
     });
 
     // Background color
@@ -2177,18 +2314,17 @@ $(() => {
             gNoteQuota.tick();
         }, 2000);
 
-        return new NoteQuota(points => {
+        // Regular function on purpose: NoteQuota calls this.cb(...), so "this"
+        // is the quota. With an arrow function this.max was undefined (NaN width)
+        return new NoteQuota(function (points) {
             // update UI
             const rat = (points / this.max) * 100;
 
-            if (rat <= last_rat)
-                nqjq.stop(true, true).css("width", rat.toFixed(0) + "%");
-            else
-                nqjq.stop(true, true).animate(
-                    { width: rat.toFixed(0) + "%" },
-                    2000,
-                    "linear"
-                );
+            // Drops are instant, refills ease back up over 2 seconds
+            nqjq.css({
+                transition: rat <= last_rat ? "none" : "width 2000ms linear",
+                width: rat.toFixed(0) + "%"
+            });
             last_rat = rat;
         });
     })();
@@ -2286,7 +2422,7 @@ $(() => {
             if (target.hasClass("menu-item")) {
                 target.addClass("clicked");
 
-                menu.fadeOut(200, () => {
+                fx.fadeOut(menu, 200, () => {
                     removeParticipantMenus();
                 });
             }
@@ -2421,7 +2557,7 @@ $(() => {
                 });
         }
 
-        menu.fadeIn(100);
+        fx.fadeIn(menu, 100);
     };
 
     // Notification class
@@ -2482,7 +2618,7 @@ $(() => {
                 this.close();
             });
 
-            $(this.domElement).fadeIn(100);
+            fx.fadeIn(this.domElement, 100);
 
             if (this.duration > 0) {
                 setTimeout(() => {
@@ -2522,7 +2658,7 @@ $(() => {
         close() {
             window.removeEventListener("resize", this.onresize);
 
-            this.domElement.fadeOut(250, () => {
+            fx.fadeOut(this.domElement, 250, () => {
                 this.domElement.remove();
                 this.emit("close");
             });
@@ -2655,7 +2791,7 @@ $(() => {
             $(evt.target).hasClass("info") &&
             $(evt.target).parents(".more").length
         ) {
-            $("#room .more").fadeOut(250);
+            fx.fadeOut("#room .more", 250);
 
             const selected_name = $(evt.target).attr("roomname");
 
@@ -2675,7 +2811,7 @@ $(() => {
             if ($(evt.target).is("#room .more")) return;
 
             $(document).off("mousedown", doc_click);
-            $("#room .more").fadeOut(250);
+            fx.fadeOut("#room .more", 250);
 
             gClient.sendArray([{ m: "-ls" }]);
         };
@@ -2743,7 +2879,7 @@ $(() => {
         $(document).on("keydown", modalHandleEsc);
 
         $("#modal #modals > *").hide();
-        $("#modal").fadeIn(250);
+        fx.fadeIn("#modal", 250);
 
         $(selector).show();
 
@@ -2757,7 +2893,7 @@ $(() => {
     const closeModal = () => {
         $(document).off("keydown", modalHandleEsc);
 
-        $("#modal").fadeOut(300);
+        fx.fadeOut("#modal", 300);
         // $("#modal #modals > *").hide();
         captureKeyboard();
 
@@ -3062,11 +3198,11 @@ $(() => {
 
         return {
             show: () => {
-                $("#chat").fadeIn();
+                fx.fadeIn("#chat");
             },
 
             hide: () => {
-                $("#chat").fadeOut();
+                fx.fadeOut("#chat");
             },
 
             clear: () => {
@@ -3144,13 +3280,13 @@ $(() => {
 
             fadeIn: (d = 100) => {
                 if (configs.config.fadeChat) {
-                    $("#chat ul").fadeTo(d, 1);
+                    fx.fadeTo("#chat ul", d, 1);
                 }
             },
 
             fadeOut: (d = 750) => {
                 if (configs.config.fadeChat) {
-                    $("#chat ul").fadeTo(1000, 0.2);
+                    fx.fadeTo("#chat ul", 1000, 0.2);
                 }
             }
         };
@@ -3569,7 +3705,7 @@ $(() => {
     let loaded = false;
 
     setTimeout(() => {
-        $("#social").fadeIn(250);
+        fx.fadeIn("#social", 250);
         $("#more-button").click(() => {
             openModal("#more");
 
@@ -3967,25 +4103,73 @@ $(() => {
         if (!configs.config.winter) return;
 
         (async () => {
-            const snow = $(`<div id="tsparticles></div>`);
+            const snow = $(`<div id="tsparticles"></div>`);
+            const btn = $(
+                `<div id="btn-tsparticles" class="ugly-button">Snow</div>`
+            );
+
+            // Remember the choice between visits (on unless turned off)
+            let enableSnow = localStorage.snow !== "false";
 
             $(document.body).prepend(snow);
+            $("#bottom .relative").append(btn);
 
-            await tsParticles.load("tsparticles", {
-                preset: "snow",
-                particles: {
-                    size: {
-                        random: true,
-                        value: 3
-                    },
-                    number: {
-                        value: 250
-                    }
-                },
-                background: {
-                    color: "transparent"
+            // Only load tsParticles once, and not at all if snow starts off
+            let containerPromise;
+            const loadSnow = () => {
+                if (!containerPromise) {
+                    containerPromise = tsParticles
+                        .load("tsparticles", {
+                            preset: "snow",
+                            particles: {
+                                size: {
+                                    random: true,
+                                    value: 3
+                                },
+                                number: {
+                                    value: 250
+                                }
+                            },
+                            background: {
+                                color: "transparent"
+                            }
+                        })
+                        .catch(err => {
+                            console.warn("Unable to load snow:", err);
+                            containerPromise = undefined;
+                        });
                 }
+
+                return containerPromise;
+            };
+
+            const applySnow = async () => {
+                btn.text(enableSnow ? "Snow: On" : "Snow: Off");
+                btn.toggleClass("stuck", enableSnow);
+
+                // Hide with visibility, not display: none. With display: none
+                // tsParticles shrinks the canvas to 0x0, then has to rebuild a
+                // full-screen canvas when shown again, which flashes white.
+                snow.css("visibility", enableSnow ? "visible" : "hidden");
+
+                if (enableSnow) {
+                    const container = await loadSnow();
+                    // Turned off again while it was loading
+                    if (!enableSnow) return container?.pause();
+                    container?.play();
+                } else if (containerPromise) {
+                    // Pause instead of destroying so turning it back on is instant
+                    (await containerPromise)?.pause();
+                }
+            };
+
+            btn.on("click", () => {
+                enableSnow = !enableSnow;
+                localStorage.snow = enableSnow;
+                applySnow();
             });
+
+            await applySnow();
         })();
     })();
 });

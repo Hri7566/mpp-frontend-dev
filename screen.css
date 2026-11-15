@@ -39,11 +39,10 @@ body {
 }
 
 body {
-    background: radial-gradient(
-        ellipse at center,
-        var(--color) 0%,
-        var(--color2) 100%
-    ); /* W3C */
+    background: radial-gradient(ellipse at center,
+            var(--color) 0%,
+            var(--color2) 100%);
+    /* W3C */
     transition: --color 1000ms, --color2 1000ms;
 }
 
@@ -407,7 +406,7 @@ table {
     max-height: 600px;
 }
 
-#room .more > div {
+#room .more>div {
     margin: 0;
     padding: 3px 6px 0px 6px;
     width: 100%;
@@ -493,6 +492,12 @@ table {
     top: 32px;
 }
 
+#btn-tsparticles {
+    position: absolute;
+    right: 150px;
+    top: 18px;
+}
+
 #social #more-button {
     margin-top: 4px;
     width: 77px;
@@ -504,8 +509,7 @@ table {
     box-shadow: 1px 1px 8px #bb9;
     color: #788;
     text-shadow: none;
-    background: url("/web/20150317155006im_/http://www.multiplayerpiano.com/kitten1.png")
-        0px 4px no-repeat;
+    background: url("/web/20150317155006im_/http://www.multiplayerpiano.com/kitten1.png") 0px 4px no-repeat;
     background-color: #dee;
 }
 

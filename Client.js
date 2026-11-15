@@ -207,7 +207,6 @@ class Client extends EventEmitter {
             hiMsg["🐈"] = self["🐈"]++ || undefined;
             if (this.loginInfo) hiMsg.login = this.loginInfo;
             this.loginInfo = undefined;
-            console.log(msg);
             if (msg.code) {
                 try {
                     if (msg.code.startsWith("~")) {

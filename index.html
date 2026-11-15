@@ -47,9 +47,14 @@
             Rules
         </button>
     </a>
-    {% elif config.topButtons == "git-links" %}
+    {% elif (config.topButtons == "git-links") or (config.topButtons == "kofi") %}
     <a href="https://github.com/Hri7566/mpp-server-dev2" target="_blank"
         style="position: absolute; right: 4px; top: 4px; font-size: 12pt; z-index: 900;">Server Source Code</a>
+        {% if config.topButtons == "kofi" %}
+        <a href="https://ko-fi.com/hri7566" target="_blank" style="position: absolute; right: 175px; top: 4px; font-size: 12pt; z-index: 900;">
+            Donate
+        </a>
+        {% endif %}
     {% endif %} {% if not config.disableChat %}
     <div id="chat">
         <ul></ul>
