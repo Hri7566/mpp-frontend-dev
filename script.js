@@ -1418,9 +1418,12 @@ $(() => {
     if (channel_id === "") channel_id = "lobby";
 
     const isSecure = globalThis.location.protocol == "https:";
+    /*
     const port = window.location.hostname.includes("multiplayerpiano.dev")
         ? 443
         : 8443;
+    */
+    const port = window.location.port;
     const gClient = new Client(
         (isSecure ? "wss://" : "ws://") + window.location.hostname + ":" + port
     );
@@ -2862,26 +2865,35 @@ $(() => {
                     .addClass("ease-out")
                     .addClass("slide-" + opposite);
 
-                setTimeout(() => {
-                    $("#piano")
-                        .removeClass("ease-out")
-                        .removeClass("slide-" + opposite)
-                        .addClass("slide-" + direction);
-                }, (t += d));
+                setTimeout(
+                    () => {
+                        $("#piano")
+                            .removeClass("ease-out")
+                            .removeClass("slide-" + opposite)
+                            .addClass("slide-" + direction);
+                    },
+                    (t += d)
+                );
 
-                setTimeout(() => {
-                    $("#piano")
-                        .addClass("ease-in")
-                        .removeClass("slide-" + direction);
-                }, (t += d));
+                setTimeout(
+                    () => {
+                        $("#piano")
+                            .addClass("ease-in")
+                            .removeClass("slide-" + direction);
+                    },
+                    (t += d)
+                );
 
-                setTimeout(() => {
-                    $("#piano").removeClass("ease-in");
+                setTimeout(
+                    () => {
+                        $("#piano").removeClass("ease-in");
 
-                    setTimeout(() => {
-                        $("#piano").removeClass("slide");
-                    }, d);
-                }, (t += d));
+                        setTimeout(() => {
+                            $("#piano").removeClass("slide");
+                        }, d);
+                    },
+                    (t += d)
+                );
             });
         }
     };
@@ -2895,7 +2907,7 @@ $(() => {
         const direction = depth <= gHistoryDepth ? "left" : "right";
         gHistoryDepth = depth;
 
-        const name = decodeURIComponent(window.location.pathname);
+        let name = decodeURIComponent(window.location.pathname);
         if (name.substring(0, 1) == "/") name = name.substring(1);
 
         changeRoom(name, direction, null, false);
